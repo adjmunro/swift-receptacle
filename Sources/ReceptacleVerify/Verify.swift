@@ -1155,11 +1155,183 @@ func verify(_ condition: Bool, _ label: String) {
             verify(false, "NoteService: unexpected throw — \(error)")
         }
 
+        // MARK: KanbanRecord
+
+        print("\nKanbanRecord")
+
+        let proj = ProjectRecord(id: "p1", name: "My Project", colorHex: "#FF0000")
+        verify(proj.id == "p1",             "ProjectRecord id")
+        verify(proj.name == "My Project",   "ProjectRecord name")
+        verify(proj.columnIds.isEmpty,      "ProjectRecord columnIds initially empty")
+
+        let col0 = KanbanColumnRecord(id: "c1", title: "To Do", ordinal: 0, projectId: "p1")
+        verify(col0.id == "c1",             "KanbanColumnRecord id")
+        verify(col0.ordinal == 0,           "KanbanColumnRecord ordinal")
+
+        let todo0 = TodoItemRecord(
+            id: "t1", title: "Write tests", itemDescription: "TDD first",
+            projectId: "p1", columnId: "c1", ordinal: 2
+        )
+        verify(todo0.id == "t1",               "TodoItemRecord id")
+        verify(todo0.title == "Write tests",   "TodoItemRecord title")
+        verify(todo0.columnId == "c1",         "TodoItemRecord columnId")
+        verify(!todo0.isCompleted,             "TodoItemRecord isCompleted initially false")
+
+        // MARK: KanbanBoard
+
+        print("\nKanbanBoard")
+
+        do {
+            // Add + retrieve project
+            let board = KanbanBoard()
+            let boardProj = ProjectRecord(id: "bp1", name: "Board Project")
+            await board.add(project: boardProj)
+            let retrieved = await board.project(id: "bp1")
+            verify(retrieved?.name == "Board Project",    "KanbanBoard: add + project(id:)")
+
+            // Add column → project.columnIds updated
+            let colA = KanbanColumnRecord(id: "col-a", title: "To Do",       ordinal: 0, projectId: "bp1")
+            let colB = KanbanColumnRecord(id: "col-b", title: "In Progress", ordinal: 1, projectId: "bp1")
+            let colC = KanbanColumnRecord(id: "col-c", title: "Done",        ordinal: 2, projectId: "bp1")
+            await board.add(column: colC)  // added out of order intentionally
+            await board.add(column: colA)
+            await board.add(column: colB)
+
+            let proj2 = await board.project(id: "bp1")
+            verify(proj2?.columnIds.contains("col-a") == true, "KanbanBoard: project.columnIds includes col-a")
+            verify(proj2?.columnIds.contains("col-b") == true, "KanbanBoard: project.columnIds includes col-b")
+
+            // Columns ordered by ordinal
+            let orderedCols = await board.columns(for: "bp1")
+            verify(orderedCols.count == 3,                  "KanbanBoard: 3 columns")
+            verify(orderedCols[0].title == "To Do",         "KanbanBoard: columns[0] = To Do")
+            verify(orderedCols[1].title == "In Progress",   "KanbanBoard: columns[1] = In Progress")
+            verify(orderedCols[2].title == "Done",          "KanbanBoard: columns[2] = Done")
+
+            // Add items — ordered by ordinal
+            let t3 = TodoItemRecord(id: "t3", title: "Third",  projectId: "bp1", columnId: "col-a", ordinal: 2)
+            let t1 = TodoItemRecord(id: "t1", title: "First",  projectId: "bp1", columnId: "col-a", ordinal: 0)
+            let t2 = TodoItemRecord(id: "t2", title: "Second", projectId: "bp1", columnId: "col-a", ordinal: 1)
+            await board.add(item: t3)
+            await board.add(item: t1)
+            await board.add(item: t2)
+
+            let colAItems = await board.items(inColumn: "col-a")
+            verify(colAItems.count == 3,             "KanbanBoard: 3 items in col-a")
+            verify(colAItems[0].title == "First",    "KanbanBoard: items ordered by ordinal [0]")
+            verify(colAItems[1].title == "Second",   "KanbanBoard: items ordered by ordinal [1]")
+            verify(colAItems[2].title == "Third",    "KanbanBoard: items ordered by ordinal [2]")
+
+            // moveItem: success
+            let moved = await board.moveItem(id: "t1", toColumn: "col-b", atOrdinal: 0)
+            verify(moved,                                         "moveItem: returns true on success")
+            let movedItem = await board.item(id: "t1")
+            verify(movedItem?.columnId == "col-b",               "moveItem: columnId updated")
+            verify(movedItem?.ordinal == 0,                      "moveItem: ordinal updated")
+            let remainInA = await board.items(inColumn: "col-a")
+            let inB = await board.items(inColumn: "col-b")
+            verify(remainInA.count == 2,                         "moveItem: col-a now has 2 items")
+            verify(inB.count == 1,                               "moveItem: col-b has 1 item")
+
+            // moveItem: unknown column
+            let badCol = await board.moveItem(id: "t2", toColumn: "no-such-col", atOrdinal: 0)
+            verify(!badCol,                                       "moveItem: false for unknown column")
+            let unchanged = await board.item(id: "t2")
+            verify(unchanged?.columnId == "col-a",               "moveItem: unchanged on bad column")
+
+            // moveItem: unknown item
+            let badItem = await board.moveItem(id: "ghost", toColumn: "col-a", atOrdinal: 0)
+            verify(!badItem,                                      "moveItem: false for unknown item")
+
+            // toggleComplete
+            let toggled = await board.toggleComplete(itemId: "t2")
+            verify(toggled,                                       "toggleComplete: returns true")
+            let completedItem = await board.item(id: "t2")
+            verify(completedItem?.isCompleted == true,            "toggleComplete: isCompleted = true")
+            await board.toggleComplete(itemId: "t2")
+            let uncompletedItem = await board.item(id: "t2")
+            verify(uncompletedItem?.isCompleted == false,         "toggleComplete: toggled back to false")
+
+            // removeItem
+            await board.remove(itemId: "t3")
+            let gone = await board.item(id: "t3")
+            verify(gone == nil,                                   "KanbanBoard: remove clears item")
+
+        } // KanbanBoard is non-throwing for CRUD
+
+        // MARK: CalendarEventParser
+
+        print("\nCalendarEventParser")
+
+        do {
+            // Parse with AI — success
+            let calAI = MockAIProvider()
+            let expectedDraft = CalendarEventDraft(
+                title: "Lunch with Alice",
+                startDate: Date(timeIntervalSinceNow: 86_400),
+                endDate:   Date(timeIntervalSinceNow: 90_000),
+                location:  "The Office",
+                attendees: ["alice@example.com"]
+            )
+            await calAI.set(parseEventResult: expectedDraft)
+
+            let calMgr = AIPermissionManager()
+            await calMgr.set(scope: .always, providerId: "mock-ai", feature: .eventParse)
+            let calGate = AIGate(permissionManager: calMgr)
+            let calParser = CalendarEventParser(aiProvider: calAI, gate: calGate, providerId: "mock-ai")
+
+            let draft = try await calParser.parse(text: "Lunch with Alice tomorrow noon at The Office")
+            verify(draft.title == "Lunch with Alice",            "CalendarEventParser: title")
+            verify(draft.location == "The Office",               "CalendarEventParser: location")
+            verify(draft.attendees.contains("alice@example.com"), "CalendarEventParser: attendee")
+
+            let calCalls = await calAI.parseEventCalled
+            verify(calCalls == 1, "CalendarEventParser: parseEvent called once")
+
+            // Permission .never → throws
+            let blockedMgr = AIPermissionManager()
+            await blockedMgr.set(scope: .never, providerId: "mock-ai", feature: .eventParse)
+            let blockedGate = AIGate(permissionManager: blockedMgr)
+            let blockedParser = CalendarEventParser(
+                aiProvider: calAI, gate: blockedGate, providerId: "mock-ai"
+            )
+            var calBlocked = false
+            do {
+                _ = try await blockedParser.parse(text: "Meeting tomorrow")
+            } catch AIProviderError.permissionDenied {
+                calBlocked = true
+            }
+            verify(calBlocked, "CalendarEventParser: .never → permissionDenied")
+
+            // Entity override: global .always, entity .never
+            let entMgr = AIPermissionManager()
+            await entMgr.set(scope: .always, providerId: "mock-ai", feature: .eventParse)
+            await entMgr.set(scope: .never,  providerId: "mock-ai", feature: .eventParse,
+                             entityId: "private")
+            let entGate = AIGate(permissionManager: entMgr)
+            let entParser = CalendarEventParser(
+                aiProvider: calAI, gate: entGate, providerId: "mock-ai"
+            )
+            // Global succeeds
+            let _ = try await entParser.parse(text: "Any event")
+            // Entity blocked
+            var entBlocked = false
+            do {
+                _ = try await entParser.parse(text: "Private event", entityId: "private")
+            } catch AIProviderError.permissionDenied {
+                entBlocked = true
+            }
+            verify(entBlocked, "CalendarEventParser: entity .never overrides global .always")
+
+        } catch {
+            verify(false, "CalendarEventParser: unexpected throw — \(error)")
+        }
+
         // MARK: Summary
 
         print("\n─────────────────────────────────────────")
         if failed == 0 {
-            print("  ✅  All \(passed) checks passed — Phase 11 green baseline confirmed.")
+            print("  ✅  All \(passed) checks passed — Phase 12 green baseline confirmed.")
         } else {
             print("  ❌  \(failed) check(s) FAILED out of \(passed + failed).")
         }

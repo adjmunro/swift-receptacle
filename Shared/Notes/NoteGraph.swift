@@ -122,7 +122,7 @@ final class NoteGraph: @unchecked Sendable {
 }
 
 /// Lightweight snapshot of a Note for graph building (no SwiftData references)
-struct NoteSnapshot: Sendable {
+struct NoteSnapshot: Sendable, Equatable {
     var id: String
     var title: String
     var tagIds: [String]
