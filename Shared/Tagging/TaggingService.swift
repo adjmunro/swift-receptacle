@@ -1,67 +1,93 @@
 import Foundation
+import Receptacle  // TagRecord, TagService, AIProvider, AIGate
 
-// MARK: - TaggingService
+// MARK: - TaggingService (SwiftData-backed facade)
 
-/// Manages tag CRUD operations and AI-assisted tag suggestions.
+/// SwiftData-backed tagging facade.
 ///
-/// Tags are cross-cutting — they apply to emails, feed articles, notes,
-/// saved links, and todo items. AI suggestions are gated by `AIPermissionManager`.
-actor TaggingService {
-    private var allTags: [String: Tag] = [:]   // id → Tag
-    private let permissionManager: AIPermissionManager
-    private let aiProvider: any AIProvider
+/// Wraps `TagService` (in ReceptacleCore) with persistence to `Tag` SwiftData models.
+/// All pure logic (hierarchy, association, AI suggestions) lives in `TagService`;
+/// this actor bridges it with the SwiftData context used by the UI layer.
+///
+/// ## Usage (Phase 10+):
+/// ```swift
+/// let service = TaggingService(
+///     modelContext: modelContext,
+///     aiProvider: claudeProvider,
+///     gate: AIGate.shared,
+///     providerId: "claude"
+/// )
+///
+/// // Add a tag
+/// try await service.createTag(name: "Swift", parentTagId: nil)
+///
+/// // AI suggestion
+/// let candidates = try await service.suggestTags(for: emailBody, entityId: entity.id)
+/// // Show candidates as dismissable chips in PostCardView
+/// ```
+public actor TaggingService {
 
-    init(
-        tags: [Tag] = [],
-        permissionManager: AIPermissionManager,
-        aiProvider: any AIProvider
+    private let core: TagService
+
+    // SwiftData ModelContext would be injected here (Xcode phase):
+    // private let modelContext: ModelContext
+
+    public init(
+        aiProvider: any AIProvider,
+        gate: AIGate,
+        providerId: String
     ) {
-        for tag in tags {
-            allTags[tag.id.uuidString] = tag
-        }
-        self.permissionManager = permissionManager
-        self.aiProvider = aiProvider
+        self.core = TagService(aiProvider: aiProvider, gate: gate, providerId: providerId)
     }
 
     // MARK: - Tag CRUD
 
-    func allTagsSorted() -> [Tag] {
-        allTags.values.sorted { $0.name < $1.name }
+    /// Create a new tag and persist it to SwiftData.
+    ///
+    /// ```swift
+    /// // Phase 10 — uncomment when ModelContext is injected:
+    /// // let tag = Tag(name: name, parentTagId: parentTagId, colorHex: colorHex)
+    /// // modelContext.insert(tag)
+    /// // try modelContext.save()
+    /// ```
+    public func createTag(
+        name: String,
+        parentTagId: String? = nil,
+        colorHex: String? = nil
+    ) {
+        let record = TagRecord(name: name, parentTagId: parentTagId, colorHex: colorHex)
+        core.add(tag: record)
     }
 
-    func tag(id: String) -> Tag? {
-        allTags[id]
+    /// Hierarchical display path for a tag (e.g. `"Work/Projects/Receptacle"`).
+    public func path(for tagId: String) -> String {
+        core.path(for: tagId)
     }
 
-    func tag(named name: String) -> Tag? {
-        allTags.values.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }
+    /// All root tags (no parent), sorted by name.
+    public func rootTags() -> [TagRecord] {
+        core.rootTags()
     }
 
-    /// Returns all tags that have no parent (root tags)
-    func rootTags() -> [Tag] {
-        allTags.values.filter { $0.parentTagId == nil }.sorted { $0.name < $1.name }
+    /// Direct children of a given parent, sorted by name.
+    public func children(of parentId: String) -> [TagRecord] {
+        core.children(of: parentId)
     }
 
-    /// Returns direct children of the given tag
-    func children(of parentId: String) -> [Tag] {
-        allTags.values.filter { $0.parentTagId == parentId }.sorted { $0.name < $1.name }
+    /// Associate a tag with any item ID (type-agnostic).
+    public func addTag(_ tagId: String, toItemId itemId: String) {
+        core.addTag(tagId, toItemId: itemId)
+    }
+
+    /// All item IDs associated with a given tag.
+    public func itemIds(forTagId tagId: String) -> Set<String> {
+        core.itemIds(forTagId: tagId)
     }
 
     // MARK: - AI Suggestions
 
-    /// Returns candidate tag names for the given text content.
-    /// Returns [] immediately if permission is denied; throws on network/model error.
-    func suggestTags(
-        for text: String,
-        entityId: String? = nil
-    ) async throws -> [String] {
-        let isDenied = await permissionManager.isDenied(
-            providerId: aiProvider.providerId,
-            feature: .tagSuggest,
-            entityId: entityId
-        )
-        guard !isDenied else { return [] }
-
-        return try await aiProvider.suggestTags(for: text)
+    /// Returns candidate tag names for the given text. Returns `[]` if permission denied.
+    public func suggestTags(for text: String, entityId: String? = nil) async throws -> [String] {
+        try await core.suggestTags(for: text, entityId: entityId)
     }
 }

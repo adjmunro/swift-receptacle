@@ -817,11 +817,201 @@ func verify(_ condition: Bool, _ label: String) {
             verify(false, "VoiceReplyPipeline: unexpected throw — \(error)")
         }
 
+        // MARK: TagRecord
+
+        print("\nTagRecord")
+
+        let rootTag = TagRecord(id: "root", name: "Work")
+        verify(rootTag.id == "root",       "TagRecord id")
+        verify(rootTag.name == "Work",     "TagRecord name")
+        verify(rootTag.parentTagId == nil, "TagRecord no parent")
+
+        let childTag = TagRecord(id: "child", name: "Projects", parentTagId: "root")
+        verify(childTag.parentTagId == "root", "TagRecord parentTagId set")
+
+        // MARK: TagService — hierarchy
+
+        print("\nTagService (hierarchy)")
+
+        do {
+            let tagMockAI = MockAIProvider()
+            let tagMgr = AIPermissionManager()
+            await tagMgr.set(scope: .always, providerId: "mock-ai", feature: .tagSuggest)
+            let tagGate = AIGate(permissionManager: tagMgr)
+            let tagSvc = TagService(aiProvider: tagMockAI, gate: tagGate, providerId: "mock-ai")
+
+            let work     = TagRecord(id: "work",     name: "Work")
+            let projects = TagRecord(id: "projects", name: "Projects",   parentTagId: "work")
+            let recep    = TagRecord(id: "recep",    name: "Receptacle", parentTagId: "projects")
+
+            await tagSvc.add(tag: work)
+            await tagSvc.add(tag: projects)
+            await tagSvc.add(tag: recep)
+
+            // rootTags
+            let roots = await tagSvc.rootTags()
+            verify(roots.count == 1,       "rootTags: only one root")
+            verify(roots[0].id == "work",  "rootTags: root is 'work'")
+
+            // children
+            let workChildren = await tagSvc.children(of: "work")
+            verify(workChildren.count == 1,         "children(of: work): 1 child")
+            verify(workChildren[0].id == "projects", "children(of: work): is 'projects'")
+
+            let projChildren = await tagSvc.children(of: "projects")
+            verify(projChildren.count == 1,        "children(of: projects): 1 child")
+            verify(projChildren[0].id == "recep",  "children(of: projects): is 'recep'")
+
+            let leafChildren = await tagSvc.children(of: "recep")
+            verify(leafChildren.isEmpty, "children of leaf: empty")
+
+            // path(for:)
+            let rootPath = await tagSvc.path(for: "work")
+            verify(rootPath == "Work",                        "path for root: 'Work'")
+            let midPath = await tagSvc.path(for: "projects")
+            verify(midPath == "Work/Projects",                "path for mid: 'Work/Projects'")
+            let leafPath = await tagSvc.path(for: "recep")
+            verify(leafPath == "Work/Projects/Receptacle",    "path for leaf: full path")
+
+            // tag(named:) case-insensitive
+            let found = await tagSvc.tag(named: "WORK")
+            verify(found?.id == "work", "tag(named:): case-insensitive lookup")
+            let notFound = await tagSvc.tag(named: "Missing")
+            verify(notFound == nil, "tag(named:): nil for unknown name")
+
+            // remove
+            await tagSvc.remove(tagId: "recep")
+            let afterRemove = await tagSvc.allTags()
+            verify(afterRemove.count == 2, "remove: tag removed from allTags")
+            verify(afterRemove.allSatisfy { $0.id != "recep" }, "remove: correct tag gone")
+
+        } // no catch needed — tag CRUD is non-throwing
+
+        // MARK: TagService — AI suggestions
+
+        print("\nTagService (AI suggestions)")
+
+        do {
+            // Allowed
+            let suggestAI = MockAIProvider()
+            await suggestAI.set(suggestTagsResult: ["swift", "ios", "wwdc"])
+            let suggestMgr = AIPermissionManager()
+            await suggestMgr.set(scope: .always, providerId: "mock-ai", feature: .tagSuggest)
+            let suggestGate = AIGate(permissionManager: suggestMgr)
+            let suggestSvc = TagService(
+                aiProvider: suggestAI, gate: suggestGate, providerId: "mock-ai"
+            )
+            let suggestions = try await suggestSvc.suggestTags(for: "Swift macros session")
+            verify(suggestions.count == 3,            "suggestTags (allowed): 3 results")
+            verify(suggestions.contains("swift"),     "suggestTags: 'swift' present")
+
+            let suggestCount = await suggestAI.suggestTagsCalled
+            verify(suggestCount == 1, "suggestTags: AI called once")
+
+            // Denied — returns [] without calling AI
+            let deniedMgr = AIPermissionManager()
+            await deniedMgr.set(scope: .never, providerId: "mock-ai", feature: .tagSuggest)
+            let deniedGate = AIGate(permissionManager: deniedMgr)
+            let deniedSvc = TagService(
+                aiProvider: suggestAI, gate: deniedGate, providerId: "mock-ai"
+            )
+            let denied = try await deniedSvc.suggestTags(for: "any content")
+            verify(denied.isEmpty, "suggestTags (denied): returns []")
+
+            let countAfterDenied = await suggestAI.suggestTagsCalled
+            verify(countAfterDenied == 1, "suggestTags (denied): AI NOT called again")
+
+        } catch {
+            verify(false, "TagService suggestions: unexpected throw — \(error)")
+        }
+
+        // MARK: TagService — cross-source association
+
+        print("\nTagService (cross-source association)")
+
+        do {
+            let assocAI = MockAIProvider()
+            let assocMgr = AIPermissionManager()
+            let assocGate = AIGate(permissionManager: assocMgr)
+            let assocSvc = TagService(aiProvider: assocAI, gate: assocGate, providerId: "mock-ai")
+
+            let swiftTag = TagRecord(id: "swift", name: "swift")
+            let iosTag   = TagRecord(id: "ios",   name: "ios")
+            await assocSvc.add(tag: swiftTag)
+            await assocSvc.add(tag: iosTag)
+
+            // Associate swift tag with items from 4 different "types"
+            await assocSvc.addTag("swift", toItemId: "email-1")
+            await assocSvc.addTag("swift", toItemId: "feed-1")
+            await assocSvc.addTag("swift", toItemId: "note-1")
+            await assocSvc.addTag("swift", toItemId: "link-1")
+            // todo-1 is NOT tagged swift
+            await assocSvc.addTag("ios", toItemId: "email-1")
+            await assocSvc.addTag("ios", toItemId: "note-1")
+
+            let swiftItems = await assocSvc.itemIds(forTagId: "swift")
+            verify(swiftItems.count == 4,                   "swift tag: 4 items across sources")
+            verify(swiftItems.contains("email-1"),           "swift tag: email present")
+            verify(swiftItems.contains("feed-1"),            "swift tag: RSS present")
+            verify(swiftItems.contains("note-1"),            "swift tag: note present")
+            verify(swiftItems.contains("link-1"),            "swift tag: saved link present")
+            verify(!swiftItems.contains("todo-1"),           "swift tag: untagged todo absent")
+
+            let iosItems = await assocSvc.itemIds(forTagId: "ios")
+            verify(iosItems.count == 2,                      "ios tag: 2 items")
+
+            // tagIds(forItemId:)
+            let email1Tags = await assocSvc.tagIds(forItemId: "email-1")
+            verify(email1Tags.count == 2,                    "email-1: 2 tags")
+            verify(email1Tags.contains("swift"),             "email-1: swift tag")
+            verify(email1Tags.contains("ios"),               "email-1: ios tag")
+
+            // removeTag
+            await assocSvc.removeTag("ios", fromItemId: "email-1")
+            let afterRemove = await assocSvc.tagIds(forItemId: "email-1")
+            verify(afterRemove.count == 1,                   "after removeTag: 1 tag left")
+            verify(!afterRemove.contains("ios"),             "ios tag removed from email-1")
+
+        } // tag association is non-throwing
+
+        // MARK: SavedLinkRecord
+
+        print("\nSavedLinkRecord")
+
+        // Basic creation
+        let link = SavedLinkRecord(
+            id: "link-1",
+            urlString: "https://swift.org",
+            title: "Swift.org",
+            sourceItemId: "email-42",
+            tagIds: ["swift", "ios"]
+        )
+        verify(link.id == "link-1",              "SavedLinkRecord id")
+        verify(link.urlString == "https://swift.org", "SavedLinkRecord urlString")
+        verify(link.title == "Swift.org",        "SavedLinkRecord title")
+        verify(link.sourceItemId == "email-42",  "SavedLinkRecord sourceItemId")
+        verify(link.tagIds.count == 2,           "SavedLinkRecord tagIds count")
+        verify(!link.isOrphaned,                 "SavedLinkRecord with source: not orphaned")
+
+        // Orphan — source item deleted
+        let orphaned = link.orphaned()
+        verify(orphaned.sourceItemId == nil,         "orphaned: sourceItemId cleared")
+        verify(orphaned.isOrphaned,                  "orphaned: isOrphaned true")
+        verify(orphaned.urlString == link.urlString, "orphaned: URL preserved")
+        verify(orphaned.title == link.title,         "orphaned: title preserved")
+        verify(orphaned.tagIds == link.tagIds,       "orphaned: tags preserved")
+        verify(orphaned.id == link.id,               "orphaned: ID unchanged")
+
+        // No source from the start
+        let noSource = SavedLinkRecord(urlString: "https://example.com")
+        verify(noSource.sourceItemId == nil, "no-source link: sourceItemId nil")
+        verify(noSource.isOrphaned,          "no-source link: immediately orphaned")
+
         // MARK: Summary
 
         print("\n─────────────────────────────────────────")
         if failed == 0 {
-            print("  ✅  All \(passed) checks passed — Phase 9 green baseline confirmed.")
+            print("  ✅  All \(passed) checks passed — Phase 10 green baseline confirmed.")
         } else {
             print("  ❌  \(failed) check(s) FAILED out of \(passed + failed).")
         }

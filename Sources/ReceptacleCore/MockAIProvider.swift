@@ -97,6 +97,8 @@ public actor MockAIProvider: AIProvider {
     public func set(summariseResult: String) { self.summariseResult = summariseResult }
     /// Set the result returned by `reframe(text:tone:)`.
     public func set(reframeResult: String)   { self.reframeResult = reframeResult }
+    /// Set the result returned by `suggestTags(for:)`.
+    public func set(suggestTagsResult: [String]) { self.suggestTagsResult = suggestTagsResult }
     /// Inject an error to be thrown by every AIProvider method.
     public func set(shouldThrow: AIProviderError?) { self.shouldThrow = shouldThrow }
 
