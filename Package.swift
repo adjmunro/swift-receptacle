@@ -66,6 +66,11 @@ let package = Package(
             name: "ReceptacleTests",
             dependencies: ["Receptacle"],
             path: "ReceptacleTests",
+            // RuleEngineTests.swift uses `import Foundation` + `import Testing` together,
+            // which triggers the _Testing_Foundation cross-import overlay. That overlay's
+            // .swiftmodule is binary-only in CLI tools (no Swift interface — build error).
+            // Excluded here; open in Xcode to run those tests.
+            exclude: ["RuleEngineTests.swift"],
             // Testing.framework lives in the CLI tools Frameworks dir, not the default search path.
             // These flags are only needed when building with CLI tools; Xcode finds it automatically.
             swiftSettings: [

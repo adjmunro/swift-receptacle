@@ -125,6 +125,67 @@ func verify(_ condition: Bool, _ label: String) {
         verify(r7.itemsToDelete.isEmpty,  "empty items: delete list empty")
         verify(r7.itemsToArchive.isEmpty, "empty items: archive list empty")
 
+        // MARK: RuleEngine — Phase 1 additions
+
+        print("\nRuleEngine (Phase 1)")
+
+        // keepLatest(2) with 5 items — keeps 2 newest
+        let fiveItems = (0..<5).map { i in
+            ItemSnapshot(id: "p\(i)", entityId: "ex",
+                         date: now.addingTimeInterval(Double(-i) * 86400))
+        }
+        let keepTwo = EntitySnapshot(id: "ex", retentionPolicy: .keepLatest(2))
+        let r8 = engine.evaluate(items: fiveItems, entity: keepTwo, now: now)
+        verify(r8.itemsToDelete.count == 3,        "keepLatest(2): 3 of 5 items deleted")
+        verify(!r8.itemsToDelete.contains("p0"),   "keepLatest(2): newest kept")
+        verify(!r8.itemsToDelete.contains("p1"),   "keepLatest(2): second kept")
+        verify(r8.itemsToDelete.contains("p2"),    "keepLatest(2): third deleted")
+
+        // keepDays boundary — item at 7d-1s is kept; item at 8d is deleted
+        let borderItem = ItemSnapshot(id: "border", entityId: "ey",
+                                      date: now.addingTimeInterval(-7 * 86400 + 1))
+        let staleItem  = ItemSnapshot(id: "stale",  entityId: "ey",
+                                      date: now.addingTimeInterval(-8 * 86400))
+        let keepDays7 = EntitySnapshot(id: "ey", retentionPolicy: .keepDays(7))
+        let r9 = engine.evaluate(items: [borderItem, staleItem], entity: keepDays7, now: now)
+        verify(!r9.itemsToDelete.contains("border"), "keepDays(7): border item (7d-1s) kept")
+        verify(r9.itemsToDelete.contains("stale"),   "keepDays(7): stale item (8d) deleted")
+
+        // protected entity — nothing deleted even under keepDays(7) + stale item
+        let protectedEntity = EntitySnapshot(id: "ep", retentionPolicy: .keepDays(7),
+                                              protectionLevel: .protected)
+        let r10 = engine.evaluate(items: [staleItem], entity: protectedEntity, now: now)
+        verify(r10.itemsToDelete.isEmpty, "protected entity: no auto-deletion")
+
+        // importance pattern — subject match elevates to .critical
+        let rateItem = ItemSnapshot(id: "rate", entityId: "ei", date: now,
+                                    subject: "Your interest rates have changed")
+        let plainItem = ItemSnapshot(id: "plain", entityId: "ei", date: now,
+                                     subject: "Monthly digest")
+        let importancePattern = ImportancePattern(matchType: .subjectContains,
+                                                  pattern: "rates",
+                                                  elevatedLevel: .critical)
+        let importanceEntity = EntitySnapshot(id: "ei", retentionPolicy: .keepAll,
+                                               importancePatterns: [importancePattern])
+        let r11 = engine.evaluate(items: [rateItem, plainItem], entity: importanceEntity, now: now)
+        verify(r11.elevatedImportance["rate"] == .critical,
+               "importance pattern: matching item elevated to .critical")
+        verify(r11.elevatedImportance["plain"] == nil,
+               "importance pattern: non-matching item has no elevation")
+
+        // multiple patterns — highest wins
+        let urgentItem = ItemSnapshot(id: "urgent", entityId: "em", date: now,
+                                      subject: "Urgent rates security alert")
+        let p1 = ImportancePattern(matchType: .subjectContains,
+                                   pattern: "rates", elevatedLevel: .important)
+        let p2 = ImportancePattern(matchType: .subjectContains,
+                                   pattern: "Urgent", elevatedLevel: .critical)
+        let multiEntity = EntitySnapshot(id: "em", retentionPolicy: .keepAll,
+                                          importancePatterns: [p1, p2])
+        let r12 = engine.evaluate(items: [urgentItem], entity: multiEntity, now: now)
+        verify(r12.elevatedImportance["urgent"] == .critical,
+               "multiple patterns: highest level wins")
+
         // MARK: AIPermissionManager
 
         print("\nAIPermissionManager")

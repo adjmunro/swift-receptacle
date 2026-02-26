@@ -73,15 +73,21 @@ public struct RuleEngine: Sendable {
         public var itemsToDelete: [String]
         public var itemsToArchive: [String]
         public var attachmentsToSave: [(itemId: String, filename: String, action: AttachmentAction)]
+        /// Items whose importance level was elevated by a matching `ImportancePattern`.
+        /// Key = item id, value = the highest elevated `ImportanceLevel` from all matching patterns.
+        /// Only contains entries for items that actually matched a pattern.
+        public var elevatedImportance: [String: ImportanceLevel]
 
         public init(
             itemsToDelete: [String] = [],
             itemsToArchive: [String] = [],
-            attachmentsToSave: [(itemId: String, filename: String, action: AttachmentAction)] = []
+            attachmentsToSave: [(itemId: String, filename: String, action: AttachmentAction)] = [],
+            elevatedImportance: [String: ImportanceLevel] = [:]
         ) {
             self.itemsToDelete = itemsToDelete
             self.itemsToArchive = itemsToArchive
             self.attachmentsToSave = attachmentsToSave
+            self.elevatedImportance = elevatedImportance
         }
     }
 
@@ -102,6 +108,21 @@ public struct RuleEngine: Sendable {
         var toArchive: [String] = []
         var toSaveAttachments: [(String, String, AttachmentAction)] = []
 
+        // --- Importance pattern elevation ---
+        // For each item, find the highest-priority ImportancePattern that matches.
+        // Only items that actually match a pattern get an entry in elevatedImportance.
+        var elevatedImportance: [String: ImportanceLevel] = [:]
+        for item in items {
+            for pattern in entity.importancePatterns {
+                guard matchesImportancePattern(item: item, pattern: pattern) else { continue }
+                let current = elevatedImportance[item.id] ?? item.importanceLevel
+                if pattern.elevatedLevel > current {
+                    elevatedImportance[item.id] = pattern.elevatedLevel
+                }
+            }
+        }
+
+        // --- Retention policy application ---
         for item in items {
             if let matchedSubRule = entity.subRules.first(where: { matches(item: item, rule: $0) }) {
                 apply(
@@ -129,14 +150,33 @@ public struct RuleEngine: Sendable {
             }
         }
 
+        // --- Protection level ---
+        // .protected entities are shielded from all automatic deletion.
+        // (Archiving is still permitted; deletion requires explicit user action in the UI.)
+        if entity.protectionLevel == .protected {
+            toDelete.removeAll()
+        }
+
         return EvaluationResult(
             itemsToDelete: toDelete,
             itemsToArchive: toArchive,
-            attachmentsToSave: toSaveAttachments
+            attachmentsToSave: toSaveAttachments,
+            elevatedImportance: elevatedImportance
         )
     }
 
     // MARK: - Private
+
+    private func matchesImportancePattern(item: ItemSnapshot, pattern: ImportancePattern) -> Bool {
+        switch pattern.matchType {
+        case .subjectContains:
+            return item.subject?.localizedCaseInsensitiveContains(pattern.pattern) == true
+        case .bodyContains:
+            return item.bodyPreview?.localizedCaseInsensitiveContains(pattern.pattern) == true
+        case .headerMatches:
+            return item.headers[pattern.pattern] != nil
+        }
+    }
 
     private func matches(item: ItemSnapshot, rule: SubRule) -> Bool {
         switch rule.matchType {
