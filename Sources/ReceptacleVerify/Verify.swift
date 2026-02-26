@@ -248,7 +248,78 @@ func verify(_ condition: Bool, _ label: String) {
         let globalStillAlways = await manager.scope(for: "openai", feature: .summarise)
         verify(globalStillAlways == .always, "global scope unchanged after entity override")
 
-        // MARK: IMAPProviderType
+        // MARK: FeedTypes
+
+        print("\nFeedTypes")
+
+        // FeedItemRecord conforms to Item
+        let feedRecord = FeedItemRecord(
+            id: "swift-blog:guid-123",
+            entityId: "entity-swift",
+            sourceId: "swift-blog",
+            date: Date(),
+            title: "Swift 6.2 Released",
+            linkURL: "https://www.swift.org/blog/swift-6-2-released/",
+            contentHTML: "<p>Announcing <strong>Swift 6.2</strong>.</p>",
+            format: .rss
+        )
+        verify(feedRecord.id       == "swift-blog:guid-123",   "FeedItemRecord id")
+        verify(feedRecord.entityId == "entity-swift",           "FeedItemRecord entityId")
+        verify(feedRecord.sourceId == "swift-blog",             "FeedItemRecord sourceId")
+        verify(feedRecord.title    == "Swift 6.2 Released",     "FeedItemRecord title")
+        verify(feedRecord.format   == .rss,                     "FeedItemRecord format = .rss")
+        verify(!feedRecord.summary.isEmpty,                     "FeedItemRecord summary auto-filled")
+
+        // makeId
+        let compositeId = FeedItemRecord.makeId(feedId: "blog", guid: "post-42")
+        verify(compositeId == "blog:post-42", "makeId builds composite ID")
+
+        // plainSummary — HTML stripping
+        let html = "<p>We are pleased to announce <strong>Swift 6.2</strong>.</p>"
+        let plain = FeedItemRecord.plainSummary(from: html)
+        verify(!plain.contains("<"),            "plainSummary: no opening tags")
+        verify(!plain.contains(">"),            "plainSummary: no closing tags")
+        verify(plain.contains("Swift 6.2"),     "plainSummary: content preserved")
+
+        // plainSummary — entity decoding
+        let entities = "Swift &amp; Objective-C &lt;rocks&gt; &quot;nice&quot;"
+        let decoded = FeedItemRecord.plainSummary(from: entities)
+        verify(decoded.contains("Swift & Objective-C"), "plainSummary: &amp; decoded")
+        verify(decoded.contains("<rocks>"),              "plainSummary: &lt;&gt; decoded")
+        verify(decoded.contains("\"nice\""),             "plainSummary: &quot; decoded")
+
+        // plainSummary — truncation
+        let longContent = String(repeating: "word ", count: 100)
+        let truncated = FeedItemRecord.plainSummary(from: longContent, maxLength: 50)
+        verify(truncated.hasSuffix("…"), "plainSummary: truncated with ellipsis")
+
+        // summary auto-fills from title when not provided
+        let noSummary = FeedItemRecord(
+            id: "x:1", entityId: "e", sourceId: "x",
+            title: "My Article Title"
+        )
+        verify(noSummary.summary == "My Article Title",
+               "FeedItemRecord: summary auto-filled from title")
+
+        // FeedFormat cases
+        verify(FeedFormat.rss.rawValue  == "rss",  "FeedFormat.rss rawValue")
+        verify(FeedFormat.atom.rawValue == "atom",  "FeedFormat.atom rawValue")
+        verify(FeedFormat.json.rawValue == "json",  "FeedFormat.json rawValue")
+        verify(FeedFormat.allCases.count == 3,      "FeedFormat has 3 cases")
+
+        // FeedConfig round-trip
+        let feedConfig = FeedConfig(
+            feedId: "swift-blog",
+            displayName: "Swift.org Blog",
+            feedURLString: "https://www.swift.org/atom.xml",
+            entityId: "entity-swift"
+        )
+        verify(feedConfig.feedId         == "swift-blog",            "FeedConfig feedId")
+        verify(feedConfig.displayName    == "Swift.org Blog",        "FeedConfig displayName")
+        verify(feedConfig.feedURLString  == "https://www.swift.org/atom.xml", "FeedConfig URL")
+        verify(feedConfig.entityId       == "entity-swift",          "FeedConfig entityId")
+
+        // IMAPProviderType
 
         print("\nIMAPProviderType")
 
@@ -362,7 +433,7 @@ func verify(_ condition: Bool, _ label: String) {
 
         print("\n─────────────────────────────────────────")
         if failed == 0 {
-            print("  ✅  All \(passed) checks passed — Phase 4 green baseline confirmed.")
+            print("  ✅  All \(passed) checks passed — Phase 5 green baseline confirmed.")
         } else {
             print("  ❌  \(failed) check(s) FAILED out of \(passed + failed).")
         }

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Objc.io</title>
+  <link href="https://www.objc.io/"/>
+  <updated>2025-09-01T12:00:00Z</updated>
+  <id>https://www.objc.io/</id>
+
+  <entry>
+    <title>Swift Concurrency in Practice</title>
+    <link href="https://www.objc.io/blog/concurrency-in-practice/" rel="alternate"/>
+    <id>https://www.objc.io/blog/concurrency-in-practice/</id>
+    <updated>2025-09-01T12:00:00Z</updated>
+    <published>2025-09-01T12:00:00Z</published>
+    <summary type="html">&lt;p&gt;A practical guide to using Swift concurrency in real-world apps.&lt;/p&gt;</summary>
+    <content type="html"><![CDATA[<p>Swift's concurrency model — actors, async/await, and structured concurrency — requires a shift in how we think about shared state.</p><p>This article walks through common patterns and pitfalls.</p>]]></content>
+  </entry>
+
+  <entry>
+    <title>SwiftData Deep Dive</title>
+    <link href="https://www.objc.io/blog/swiftdata/" rel="alternate"/>
+    <id>https://www.objc.io/blog/swiftdata/</id>
+    <updated>2025-07-15T09:30:00Z</updated>
+    <published>2025-07-15T09:30:00Z</published>
+    <summary type="html">&lt;p&gt;Everything you need to know about SwiftData.&lt;/p&gt;</summary>
+    <content type="html"><![CDATA[<p>SwiftData is Apple's modern persistence framework, combining the power of Core Data with a Swift-native API.</p>]]></content>
+  </entry>
+
+  <entry>
+    <title>Old Atom Entry</title>
+    <link href="https://www.objc.io/blog/old-entry/" rel="alternate"/>
+    <id>https://www.objc.io/blog/old-entry/</id>
+    <updated>2020-03-01T00:00:00Z</updated>
+    <published>2020-03-01T00:00:00Z</published>
+    <summary>This entry is old and should be filtered by fetchItems(since:).</summary>
+  </entry>
+
+</feed>

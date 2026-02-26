@@ -1,0 +1,33 @@
+{
+  "version": "https://jsonfeed.org/version/1.1",
+  "title": "Hacking with Swift",
+  "home_page_url": "https://www.hackingwithswift.com/",
+  "feed_url": "https://www.hackingwithswift.com/feed.json",
+  "description": "Free Swift tutorials and articles.",
+  "items": [
+    {
+      "id": "https://www.hackingwithswift.com/swift6-migration",
+      "url": "https://www.hackingwithswift.com/swift6-migration",
+      "title": "Migrating to Swift 6",
+      "content_html": "<p>Swift 6 introduces strict concurrency checking. Here's how to migrate your project step by step.</p><p>Start by enabling <code>StrictConcurrency</code> as an upcoming feature flag.</p>",
+      "summary": "A step-by-step guide to migrating your project to Swift 6.",
+      "date_published": "2025-10-15T08:00:00Z"
+    },
+    {
+      "id": "https://www.hackingwithswift.com/swiftui-animations",
+      "url": "https://www.hackingwithswift.com/swiftui-animations",
+      "title": "Advanced SwiftUI Animations",
+      "content_html": "<p>SwiftUI's animation system is powerful but has some surprising behaviours. Let's explore keyframe animations and spring physics.</p>",
+      "summary": "Exploring keyframe animations and spring physics in SwiftUI.",
+      "date_published": "2025-08-20T10:30:00Z"
+    },
+    {
+      "id": "https://www.hackingwithswift.com/old-article",
+      "url": "https://www.hackingwithswift.com/old-article",
+      "title": "Old JSON Feed Article",
+      "content_html": "<p>This item predates the since: cutoff and should be filtered.</p>",
+      "summary": "Old article to test date filtering.",
+      "date_published": "2019-06-01T00:00:00Z"
+    }
+  ]
+}
