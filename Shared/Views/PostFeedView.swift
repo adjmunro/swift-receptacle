@@ -103,11 +103,20 @@ struct PostFeedView: View {
     }
 
     /// Source types that actually have items, for rendering the tab bar.
+    ///
+    /// iMessage is macOS-only (read via `~/Library/Messages/chat.db` with Full Disk Access).
+    /// It is excluded from the tab bar on iOS where that API is unavailable.
     var availableSources: [SourceType] {
         var seen = Set<SourceType>()
         for item in allItems { seen.insert(item.sourceType) }
         // Stable order: email before rss before others
-        return SourceType.allCases.filter { seen.contains($0) }
+        return SourceType.allCases.filter { type in
+#if os(iOS)
+            // iMessage source is macOS-only — hide its tab on iOS
+            guard type != .iMessage else { return false }
+#endif
+            return seen.contains(type)
+        }
     }
 
     /// Unread count per source type.
@@ -117,6 +126,9 @@ struct PostFeedView: View {
     }
 
     // MARK: Body
+
+    /// iOS only: shows the linked-note panel as a full-screen sheet.
+    @State private var showNotesSheet = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -166,6 +178,34 @@ struct PostFeedView: View {
         .navigationTitle(entity.displayName)
 #if os(macOS)
         .navigationSubtitle(entity.retentionPolicy.displayName)
+#else
+        // iOS: Notes panel as a toolbar sheet button.
+        // macOS: SidebarNoteView is hosted in an HSplitView by the parent ContentView.
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showNotesSheet = true
+                } label: {
+                    Label("Notes", systemImage: "note.text")
+                }
+            }
+        }
+        .sheet(isPresented: $showNotesSheet) {
+            // Phase 13: pass NoteService + itemContent when wired in Xcode.
+            // SidebarNoteView is presented as a full-screen sheet on iOS.
+            NavigationStack {
+                Text("Notes panel — wire NoteService in Xcode target.")
+                    .foregroundStyle(.secondary)
+                    .navigationTitle("Notes")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { showNotesSheet = false }
+                        }
+                    }
+            }
+            .presentationDetents([.medium, .large])
+        }
 #endif
     }
 }

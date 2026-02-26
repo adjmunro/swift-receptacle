@@ -5,7 +5,9 @@ import Receptacle  // WikilinkParser, WikilinkParseResult
 
 /// Split Markdown editor + rendered preview pane.
 ///
-/// Left: raw `TextEditor` (monospaced). Right: rendered preview.
+/// ## Platform layout
+/// - **macOS**: `HSplitView` — left raw `TextEditor` (monospaced), right rendered preview.
+/// - **iOS**: `TabView` with editor and preview tabs (HSplitView is macOS-only).
 ///
 /// ## Textual integration (Phase 11, requires Xcode + package linked):
 /// ```swift
@@ -33,35 +35,67 @@ struct NoteEditorView: View {
     private let parser = WikilinkParser()
 
     var body: some View {
+#if os(macOS)
+        macOSLayout
+#else
+        iOSLayout
+#endif
+    }
+
+    // MARK: - macOS: HSplitView
+
+#if os(macOS)
+    private var macOSLayout: some View {
         HSplitView {
-            // ── Left: raw Markdown editor ──
-            TextEditor(text: $note.markdownContent)
-                .font(.system(.body, design: .monospaced))
-                .onChange(of: note.markdownContent) { _, newValue in
-                    note.updatedAt = Date()
-                    wikilinkRanges = parser.extractLinks(from: newValue)
-                }
-                .onAppear {
-                    wikilinkRanges = parser.extractLinks(from: note.markdownContent)
-                }
+            editorPane
+            previewPane
+        }
+    }
+#endif
 
-            // ── Right: rendered preview ──
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
+    // MARK: - iOS: TabView
 
-                    // Phase 11 (Textual linked in Xcode):
-                    // MarkdownText(preprocessed(note.markdownContent))
-                    //     .padding()
+#if os(iOS)
+    private var iOSLayout: some View {
+        TabView {
+            editorPane
+                .tabItem { Label("Edit", systemImage: "pencil") }
+            previewPane
+                .tabItem { Label("Preview", systemImage: "eye") }
+        }
+    }
+#endif
 
-                    // Placeholder: plain text + wikilink chip list
-                    Text(note.markdownContent)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding()
+    // MARK: - Shared panes
 
-                    if !wikilinkRanges.isEmpty {
-                        Divider()
-                        wikilinkLinksSection
-                    }
+    private var editorPane: some View {
+        TextEditor(text: $note.markdownContent)
+            .font(.system(.body, design: .monospaced))
+            .onChange(of: note.markdownContent) { _, newValue in
+                note.updatedAt = Date()
+                wikilinkRanges = parser.extractLinks(from: newValue)
+            }
+            .onAppear {
+                wikilinkRanges = parser.extractLinks(from: note.markdownContent)
+            }
+    }
+
+    private var previewPane: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+
+                // Phase 11 (Textual linked in Xcode):
+                // MarkdownText(preprocessed(note.markdownContent))
+                //     .padding()
+
+                // Placeholder: plain text + wikilink chip list
+                Text(note.markdownContent)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+
+                if !wikilinkRanges.isEmpty {
+                    Divider()
+                    wikilinkLinksSection
                 }
             }
         }

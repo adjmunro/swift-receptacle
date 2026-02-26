@@ -1,6 +1,5 @@
 // iOS app entry point
 // This file is included in the iOS Xcode target only — not in the SPM Receptacle library.
-// Full implementation: Phase 13.
 
 #if os(iOS)
 import SwiftUI
@@ -29,10 +28,23 @@ struct ReceptacleApp: App {
     }
 }
 
+// MARK: - IOSRootView
+
+/// Root navigation container for iOS.
+///
+/// Uses `NavigationStack` (push navigation) instead of macOS `NavigationSplitView`.
+/// `EntityListView` rows are `NavigationLink(value:)` on iOS; `.navigationDestination`
+/// here handles the actual push to `PostFeedView`.
+///
+/// Second-level navigation within PostFeedView (reply, notes, tags) uses
+/// `.sheet` presentation — see `PostCardView` and `SidebarNoteView`.
 struct IOSRootView: View {
     var body: some View {
         NavigationStack {
             EntityListView()
+                .navigationDestination(for: Entity.self) { entity in
+                    PostFeedView(entity: entity)
+                }
         }
     }
 }

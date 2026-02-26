@@ -13,9 +13,25 @@ import SwiftData
 ///   - `.protected`   → no destructive actions
 ///   - `.normal`      → trailing "Archive all" action
 ///   - `.apocalyptic` → leading "Delete All" action (red, destructive)
+///
+/// ## Platform differences
+/// - **macOS**: `List(selection:)` drives the `NavigationSplitView` detail pane
+///   via the `selectedEntity` binding passed in from `ContentView`.
+/// - **iOS**: Each row is a `NavigationLink(value:)`. The `NavigationStack` in
+///   `IOSRootView` provides the `.navigationDestination` to push `PostFeedView`.
+///   The `selectedEntity` binding is unused on iOS (`.constant(nil)` default).
 struct EntityListView: View {
     @Query private var entities: [Entity]
+
+    /// macOS: drives NavigationSplitView detail. iOS: unused (NavigationLink handles navigation).
     @Binding var selectedEntity: Entity?
+
+    // MARK: Init
+
+    /// Designated init. macOS passes a real binding; iOS calls with no argument.
+    init(selectedEntity: Binding<Entity?> = .constant(nil)) {
+        self._selectedEntity = selectedEntity
+    }
 
     // MARK: Computed
 
@@ -30,10 +46,11 @@ struct EntityListView: View {
     // MARK: Body
 
     var body: some View {
+#if os(macOS)
+        // macOS: selection-bound list for NavigationSplitView
         List(sortedEntities, selection: $selectedEntity) { entity in
             EntityRowView(entity: entity)
                 .tag(entity as Entity?)
-                // Trailing swipe: archive (normal + apocalyptic)
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     if entity.protectionLevel != .protected {
                         Button {
@@ -44,7 +61,6 @@ struct EntityListView: View {
                         .tint(.orange)
                     }
                 }
-                // Leading swipe: delete all (apocalyptic only)
                 .swipeActions(edge: .leading, allowsFullSwipe: false) {
                     if entity.protectionLevel == .apocalyptic {
                         Button(role: .destructive) {
@@ -55,6 +71,33 @@ struct EntityListView: View {
                     }
                 }
         }
+#else
+        // iOS: NavigationLink-based list; IOSRootView provides .navigationDestination
+        List(sortedEntities) { entity in
+            NavigationLink(value: entity) {
+                EntityRowView(entity: entity)
+            }
+            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                if entity.protectionLevel != .protected {
+                    Button {
+                        // Phase 3: call IMAPSource.archive for all items
+                    } label: {
+                        Label("Archive All", systemImage: "archivebox")
+                    }
+                    .tint(.orange)
+                }
+            }
+            .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                if entity.protectionLevel == .apocalyptic {
+                    Button(role: .destructive) {
+                        // Phase 3: delete all items for this entity
+                    } label: {
+                        Label("Delete All", systemImage: "trash.fill")
+                    }
+                }
+            }
+        }
+#endif
         .navigationTitle("Inbox")
         .listStyle(.sidebar)
     }

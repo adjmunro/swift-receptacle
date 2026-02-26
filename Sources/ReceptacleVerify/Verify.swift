@@ -1327,11 +1327,36 @@ func verify(_ condition: Bool, _ label: String) {
             verify(false, "CalendarEventParser: unexpected throw — \(error)")
         }
 
+        // MARK: SourceType — iOS platform compatibility (Phase 13)
+
+        print("\nSourceType (iOS platform compatibility)")
+
+        // iMessage must exist so PostFeedView can filter it on iOS
+        verify(SourceType.allCases.contains(.iMessage),
+               "SourceType.iMessage exists (filtered out on iOS by PostFeedView)")
+        verify(SourceType.allCases.count == 10,   "10 SourceType cases total")
+        verify(SourceType.iMessage.rawValue == "iMessage", "iMessage rawValue")
+        verify(SourceType.email.rawValue    == "email",    "email rawValue")
+        verify(SourceType.rss.rawValue      == "rss",      "rss rawValue")
+        verify(SourceType.calendar.rawValue == "calendar", "calendar rawValue")
+
+        // iOS filter logic — model PostFeedView.availableSources iOS branch
+        let seenTypes: Set<SourceType> = [.email, .rss, .iMessage]
+        let iosVisible = SourceType.allCases.filter { $0 != .iMessage && seenTypes.contains($0) }
+        verify(!iosVisible.contains(.iMessage), "iOS filter: iMessage excluded")
+        verify(iosVisible.contains(.email),     "iOS filter: email kept")
+        verify(iosVisible.contains(.rss),       "iOS filter: rss kept")
+
+        // macOS filter keeps iMessage
+        let macVisible = SourceType.allCases.filter { seenTypes.contains($0) }
+        verify(macVisible.contains(.iMessage),  "macOS filter: iMessage kept")
+        verify(macVisible.contains(.email),     "macOS filter: email kept")
+
         // MARK: Summary
 
         print("\n─────────────────────────────────────────")
         if failed == 0 {
-            print("  ✅  All \(passed) checks passed — Phase 12 green baseline confirmed.")
+            print("  ✅  All \(passed) checks passed — Phase 13 green baseline confirmed.")
         } else {
             print("  ❌  \(failed) check(s) FAILED out of \(passed + failed).")
         }
