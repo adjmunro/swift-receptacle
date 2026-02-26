@@ -133,13 +133,11 @@ struct KanbanCardView: View {
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(
 #if os(macOS)
-            .windowBackground
+        .background(.windowBackground)
 #else
-            .secondarySystemBackground
+        .background(Color(.secondarySystemBackground))
 #endif
-        ))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .shadow(radius: 1)
     }

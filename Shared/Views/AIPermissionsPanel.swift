@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import Receptacle
 
 /// Shows and edits AI permission settings per provider, feature, and entity.
 struct AIPermissionsPanel: View {

@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import Receptacle
 
 /// Browse and edit Contacts — display name, type, source identifiers,
 /// and the linked Entity (importance, tone, retention).

@@ -1,22 +1,6 @@
 import Foundation
 import SwiftData
-
-// MARK: - AI Feature & Scope
-
-enum AIFeature: String, Codable, CaseIterable, Sendable {
-    case summarise
-    case reframeTone
-    case transcribe
-    case privacySummary
-    case tagSuggest
-    case eventParse
-}
-
-enum AIScope: String, Codable, CaseIterable, Sendable {
-    case always
-    case askEachTime
-    case never
-}
+import Receptacle
 
 // MARK: - AIPermission
 
@@ -24,6 +8,9 @@ enum AIScope: String, Codable, CaseIterable, Sendable {
 ///
 /// `entityId == nil` means this is the global default for that provider+feature pair.
 /// A per-entity record takes precedence over the global default.
+///
+/// `AIFeature` and `AIScope` enums are defined in `ReceptacleCore/CoreTypes.swift`
+/// and imported via `Receptacle`.
 @Model
 final class AIPermission {
     var id: UUID

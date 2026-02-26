@@ -60,13 +60,11 @@ struct NoteGraphView: View {
                 }
             }
         }
-        .background(Color(
 #if os(macOS)
-            .windowBackground
+        .background(.windowBackground)
 #else
-            .systemBackground
+        .background(Color(.systemBackground))
 #endif
-        ))
         .onTapGesture { location in
             if let node = graph.nodes.first(where: { node in
                 let dx = node.position.x - location.x

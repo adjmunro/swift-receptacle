@@ -1,0 +1,122 @@
+name: Receptacle
+
+options:
+  bundleIdPrefix: com.user
+  deploymentTarget:
+    macOS: "15.0"
+    iOS: "18.0"
+  xcodeVersion: "26.0"
+  createIntermediateGroups: true
+  defaultConfig: Debug
+
+# Local SPM package — provides ReceptacleCore types to all app targets.
+packages:
+  Receptacle:
+    path: .
+
+configs:
+  Debug:   debug
+  Release: release
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    ENABLE_HARDENED_RUNTIME: YES
+
+targets:
+
+  # ── macOS App ──────────────────────────────────────────────────────────────
+  ReceptacleApp:
+    type: application
+    platform: macOS
+    deploymentTarget: "15.0"
+    sources:
+      - path: macOS
+        createIntermediateGroups: true
+      - path: Shared
+        createIntermediateGroups: true
+    dependencies:
+      - package: Receptacle
+        product: Receptacle
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.user.receptacle
+        PRODUCT_NAME: Receptacle
+        # Distinguish Swift module name from SPM package "Receptacle"
+        PRODUCT_MODULE_NAME: ReceptacleApp
+        GENERATE_INFOPLIST_FILE: YES
+        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: 0.1.0
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGN_STYLE: Automatic
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_PREVIEWS: YES
+      configs:
+        Debug:
+          PRODUCT_BUNDLE_IDENTIFIER: com.user.receptacle.debug
+    scheme:
+      testTargets:
+        - ReceptacleTests
+      # macOS is the primary run target
+      gatherCoverageData: false
+
+  # ── iOS App ────────────────────────────────────────────────────────────────
+  Receptacle-iOS:
+    type: application
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      - path: iOS
+        createIntermediateGroups: true
+      - path: Shared
+        createIntermediateGroups: true
+    dependencies:
+      - package: Receptacle
+        product: Receptacle
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.user.receptacle.ios
+        PRODUCT_NAME: Receptacle
+        PRODUCT_MODULE_NAME: ReceptacleApp
+        GENERATE_INFOPLIST_FILE: YES
+        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: 0.1.0
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGN_STYLE: Automatic
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SUPPORTS_MACCATALYST: NO
+        ENABLE_PREVIEWS: YES
+      configs:
+        Debug:
+          PRODUCT_BUNDLE_IDENTIFIER: com.user.receptacle.ios.debug
+    scheme:
+      testTargets:
+        - ReceptacleTests
+
+  # ── Unit Tests ─────────────────────────────────────────────────────────────
+  ReceptacleTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: ReceptacleTests
+        createIntermediateGroups: true
+    dependencies:
+      - package: Receptacle
+        product: Receptacle
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.user.receptacle.tests
+    scheme:
+      testPlans: []
+
+  # ── UI Tests ───────────────────────────────────────────────────────────────
+  ReceptacleUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - path: ReceptacleUITests
+        createIntermediateGroups: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.user.receptacle.uitests
+        TEST_TARGET_NAME: Receptacle

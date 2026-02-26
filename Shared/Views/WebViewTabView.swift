@@ -25,7 +25,8 @@ struct WebViewTabView: View {
 }
 
 #if canImport(WebKit)
-/// Platform bridge for WKWebView until a SwiftUI-native WebView exists for macOS.
+/// Platform bridge for WKWebView — uses the appropriate Representable for each platform.
+#if os(macOS)
 struct WebViewRepresentable: NSViewRepresentable {
     let urlString: String
 
@@ -33,8 +34,7 @@ struct WebViewRepresentable: NSViewRepresentable {
         let config = WKWebViewConfiguration()
         // Use default persistent data store so cookies survive restarts
         config.websiteDataStore = .default()
-        let webView = WKWebView(frame: .zero, configuration: config)
-        return webView
+        return WKWebView(frame: .zero, configuration: config)
     }
 
     func updateNSView(_ nsView: WKWebView, context: Context) {
@@ -44,4 +44,22 @@ struct WebViewRepresentable: NSViewRepresentable {
         }
     }
 }
+#else
+struct WebViewRepresentable: UIViewRepresentable {
+    let urlString: String
+
+    func makeUIView(context: Context) -> WKWebView {
+        let config = WKWebViewConfiguration()
+        config.websiteDataStore = .default()
+        return WKWebView(frame: .zero, configuration: config)
+    }
+
+    func updateUIView(_ uiView: WKWebView, context: Context) {
+        guard let url = URL(string: urlString) else { return }
+        if uiView.url?.absoluteString != urlString {
+            uiView.load(URLRequest(url: url))
+        }
+    }
+}
+#endif
 #endif

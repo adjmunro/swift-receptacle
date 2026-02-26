@@ -1,4 +1,5 @@
 import Foundation
+import Receptacle
 
 // MARK: - WebViewSource
 
@@ -16,10 +17,10 @@ actor WebViewSource: MessageSource {
     let contactThreadURLString: String
     let entityId: String
 
-    var id: String { "\(serviceId):\(contactThreadURLString)" }
-    var sourceId: String { id }
-    var displayName: String { serviceName }
-    var sourceType: SourceType { .webView }
+    nonisolated var id: String { "\(serviceId):\(contactThreadURLString)" }
+    nonisolated var sourceId: String { id }
+    nonisolated var displayName: String { serviceName }
+    nonisolated var sourceType: SourceType { .webView }
 
     init(
         serviceId: String,

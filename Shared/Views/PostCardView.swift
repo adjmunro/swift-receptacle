@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import Receptacle
 
 // MARK: - PostCardView
 
@@ -243,7 +244,7 @@ struct PostCardView: View {
         protectionLevel: .protected,
         retentionPolicy: .keepAll
     )
-    return PostCardView(item: item, entity: entity)
+    PostCardView(item: item, entity: entity)
         .padding()
         .modelContainer(for: Entity.self, inMemory: true)
 }
@@ -266,7 +267,7 @@ struct PostCardView: View {
         protectionLevel: .normal,
         retentionPolicy: .keepLatest(20)
     )
-    return PostCardView(item: item, entity: entity)
+    PostCardView(item: item, entity: entity)
         .padding()
         .modelContainer(for: Entity.self, inMemory: true)
 }

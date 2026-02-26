@@ -5,6 +5,7 @@
 
 import Foundation
 import SwiftData
+import Receptacle
 
 /// Populates an in-memory `ModelContainer` with representative mock data.
 ///
@@ -15,6 +16,7 @@ import SwiftData
 ///         .modelContainer(PreviewData.container)
 /// }
 /// ```
+@MainActor
 enum PreviewData {
 
     static var container: ModelContainer = {
@@ -75,16 +77,16 @@ enum PreviewData {
         let rates = Entity(
             displayName: "Bank Alerts",
             importanceLevel: .normal,
-            protectionLevel: .protected,
-            retentionPolicy: .keepAll,
-            replyTone: .formal,
             importancePatterns: [
                 ImportancePattern(
                     matchType: .subjectContains,
                     pattern: "rates",
                     elevatedLevel: .critical
                 ),
-            ]
+            ],
+            protectionLevel: .protected,
+            retentionPolicy: .keepAll,
+            replyTone: .formal
         )
 
         [mum, amazon, workTests, swiftBlog, rates].forEach { context.insert($0) }

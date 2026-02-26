@@ -32,7 +32,7 @@ public actor TaggingService {
     // SwiftData ModelContext would be injected here (Xcode phase):
     // private let modelContext: ModelContext
 
-    public init(
+    init(
         aiProvider: any AIProvider,
         gate: AIGate,
         providerId: String
@@ -54,34 +54,34 @@ public actor TaggingService {
         name: String,
         parentTagId: String? = nil,
         colorHex: String? = nil
-    ) {
+    ) async {
         let record = TagRecord(name: name, parentTagId: parentTagId, colorHex: colorHex)
-        core.add(tag: record)
+        await core.add(tag: record)
     }
 
     /// Hierarchical display path for a tag (e.g. `"Work/Projects/Receptacle"`).
-    public func path(for tagId: String) -> String {
-        core.path(for: tagId)
+    public func path(for tagId: String) async -> String {
+        await core.path(for: tagId)
     }
 
     /// All root tags (no parent), sorted by name.
-    public func rootTags() -> [TagRecord] {
-        core.rootTags()
+    public func rootTags() async -> [TagRecord] {
+        await core.rootTags()
     }
 
     /// Direct children of a given parent, sorted by name.
-    public func children(of parentId: String) -> [TagRecord] {
-        core.children(of: parentId)
+    public func children(of parentId: String) async -> [TagRecord] {
+        await core.children(of: parentId)
     }
 
     /// Associate a tag with any item ID (type-agnostic).
-    public func addTag(_ tagId: String, toItemId itemId: String) {
-        core.addTag(tagId, toItemId: itemId)
+    public func addTag(_ tagId: String, toItemId itemId: String) async {
+        await core.addTag(tagId, toItemId: itemId)
     }
 
     /// All item IDs associated with a given tag.
-    public func itemIds(forTagId tagId: String) -> Set<String> {
-        core.itemIds(forTagId: tagId)
+    public func itemIds(forTagId tagId: String) async -> Set<String> {
+        await core.itemIds(forTagId: tagId)
     }
 
     // MARK: - AI Suggestions

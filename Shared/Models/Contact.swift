@@ -1,36 +1,6 @@
 import Foundation
 import SwiftData
-
-// MARK: - Supporting Types
-
-enum ContactType: String, Codable, CaseIterable, Sendable {
-    case person
-    case organization
-    case newsletter
-    case transactional
-    case automated
-    case feed
-}
-
-enum SourceType: String, Codable, CaseIterable, Sendable {
-    case email
-    case rss
-    case slack
-    case teams
-    case iMessage
-    case matrix
-    case xmpp
-    case discord
-    case webView
-    case calendar
-}
-
-struct SourceIdentifier: Codable, Sendable, Hashable {
-    /// Which integration this identifier belongs to (email, rss, slack, etc.)
-    var type: SourceType
-    /// The actual identifier: email address, feed URL string, Slack handle, etc.
-    var value: String
-}
+import Receptacle
 
 // MARK: - Contact
 
@@ -38,6 +8,9 @@ struct SourceIdentifier: Codable, Sendable, Hashable {
 ///
 /// Only `.person` and `.organization` contacts sync with CNContactStore.
 /// Newsletters, receipts, feeds, and automated senders are Receptacle-internal only.
+///
+/// `ContactType`, `SourceType`, and `SourceIdentifier` are defined in
+/// `ReceptacleCore/CoreTypes.swift` and imported via `Receptacle`.
 @Model
 final class Contact {
     var id: UUID

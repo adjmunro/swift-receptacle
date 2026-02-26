@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import Receptacle
 
 // MARK: - PostCardItem
 
@@ -266,11 +267,10 @@ extension SourceType {
 // MARK: - Preview
 
 #Preview("Post Feed — email + rss") {
-    let entity = PreviewData.container.mainContext
+    let entity = (try? PreviewData.container.mainContext
         .fetch(FetchDescriptor<Entity>(
             predicate: #Predicate { $0.displayName == "Swift.org Blog" }
-        ))
-        .first ?? Entity(displayName: "Preview Entity")
+        )))?.first ?? Entity(displayName: "Preview Entity")
 
     return NavigationStack {
         PostFeedView(entity: entity)
@@ -279,11 +279,10 @@ extension SourceType {
 }
 
 #Preview("Post Feed — email only") {
-    let entity = PreviewData.container.mainContext
+    let entity = (try? PreviewData.container.mainContext
         .fetch(FetchDescriptor<Entity>(
             predicate: #Predicate { $0.displayName == "Mum" }
-        ))
-        .first ?? Entity(displayName: "Preview Entity")
+        )))?.first ?? Entity(displayName: "Preview Entity")
 
     return NavigationStack {
         PostFeedView(entity: entity)

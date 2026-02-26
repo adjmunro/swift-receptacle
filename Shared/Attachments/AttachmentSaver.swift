@@ -81,6 +81,7 @@ public struct AttachmentSaver: Sendable {
             destinationURL = dir.appendingPathComponent(filename)
 
         case .localFolder(let bookmarkData):
+#if os(macOS)
             var isStale = false
             let folderURL: URL
             do {
@@ -94,6 +95,12 @@ public struct AttachmentSaver: Sendable {
                 return .failed(AttachmentSaverError.invalidBookmark)
             }
             destinationURL = folderURL.appendingPathComponent(filename)
+#else
+            // Security-scoped bookmarks (.withSecurityScope) are macOS-only.
+            // On iOS, use the .iCloudDrive destination instead.
+            _ = bookmarkData
+            return .skipped(reason: "Local folder destinations are not supported on iOS")
+#endif
         }
 
         // 3. Write file

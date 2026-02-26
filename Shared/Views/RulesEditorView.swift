@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import Receptacle
 
 /// Edit display name, importance level, protection level, retention policy,
 /// reply tone, and sub-rules for an Entity — all in one place.

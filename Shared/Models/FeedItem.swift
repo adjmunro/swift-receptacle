@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import Receptacle
 
 /// A single article or entry from an RSS/Atom/JSON Feed source.
 ///
@@ -60,6 +61,5 @@ final class FeedItem {
     }
 }
 
-extension FeedItem: Item {
-    // Explicit conformance provided by the stored properties above
-}
+extension FeedItem: Item {}
+extension FeedItem: @unchecked Sendable {}

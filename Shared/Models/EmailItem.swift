@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import Receptacle
 
 // MARK: - Attachment
 
@@ -115,6 +116,5 @@ final class EmailItem {
     }
 }
 
-extension EmailItem: Item {
-    // Explicit conformance provided by the stored properties above
-}
+extension EmailItem: Item {}
+extension EmailItem: @unchecked Sendable {}

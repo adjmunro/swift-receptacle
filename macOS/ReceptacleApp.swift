@@ -64,7 +64,10 @@ struct SettingsView: View {
         TabView {
             AIPermissionsPanel()
                 .tabItem { Label("AI", systemImage: "brain") }
-            RulesEditorView()
+            // RulesEditorView is per-entity — accessed from the entity list, not global settings.
+            Text("Select an entity from the Inbox sidebar to edit its rules.")
+                .foregroundStyle(.secondary)
+                .padding()
                 .tabItem { Label("Rules", systemImage: "slider.horizontal.3") }
         }
         .frame(width: 540, height: 440)

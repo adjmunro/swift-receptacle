@@ -30,7 +30,7 @@ struct NoteEditorView: View {
     @Bindable var note: Note
     var onNavigateToNote: ((String) -> Void)?
 
-    @State private var wikilinkRanges: [WikiLink] = []
+    @State private var wikilinkRanges: [WikilinkMatch] = []
 
     private let parser = WikilinkParser()
 
