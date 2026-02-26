@@ -38,7 +38,8 @@ let package = Package(
         // in Xcode targets directly as the phases progress.
         //
         // External package products commented out — uncomment as each phase lands:
-        //   Phase 3:  SwiftMail
+        //   Phase 3:  SwiftMail (wired in Xcode target directly — IMAPSource lives in Shared/,
+        //             not in Sources/ReceptacleCore, so no SPM target linkage needed)
         //   Phase 4:  GoogleSignIn, MSAL
         //   Phase 5:  FeedKit
         //   Phase 8:  OpenAI, SwiftAnthropic, WhisperKit
@@ -66,11 +67,11 @@ let package = Package(
             name: "ReceptacleTests",
             dependencies: ["Receptacle"],
             path: "ReceptacleTests",
-            // RuleEngineTests.swift uses `import Foundation` + `import Testing` together,
-            // which triggers the _Testing_Foundation cross-import overlay. That overlay's
+            // These files use `import Foundation` + `import Testing` together, which
+            // triggers the _Testing_Foundation cross-import overlay. That overlay's
             // .swiftmodule is binary-only in CLI tools (no Swift interface — build error).
             // Excluded here; open in Xcode to run those tests.
-            exclude: ["RuleEngineTests.swift"],
+            exclude: ["RuleEngineTests.swift", "IMAPSourceTests.swift"],
             // Testing.framework lives in the CLI tools Frameworks dir, not the default search path.
             // These flags are only needed when building with CLI tools; Xcode finds it automatically.
             swiftSettings: [

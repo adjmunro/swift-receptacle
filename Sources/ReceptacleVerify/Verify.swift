@@ -248,11 +248,85 @@ func verify(_ condition: Bool, _ label: String) {
         let globalStillAlways = await manager.scope(for: "openai", feature: .summarise)
         verify(globalStillAlways == .always, "global scope unchanged after entity override")
 
+        // MARK: MockMessageSource
+
+        print("\nMockMessageSource")
+
+        do {
+            let now2 = Date()
+
+            // fetchItems(since: nil) returns all active items
+            let mockSource = MockMessageSource()
+            await mockSource.addItem(MockItem(id: "m1", entityId: "e1", date: now2))
+            await mockSource.addItem(MockItem(id: "m2", entityId: "e1",
+                                              date: now2.addingTimeInterval(-3_600)))
+            let allItems = try await mockSource.fetchItems(since: nil)
+            verify(allItems.count == 2, "fetchItems(nil): returns all 2 items")
+            verify(allItems.map(\.id).contains("m1"), "fetchItems(nil): m1 present")
+            verify(allItems.map(\.id).contains("m2"), "fetchItems(nil): m2 present")
+
+            // archive removes item from fetchItems
+            let archiveSource = MockMessageSource()
+            let archiveItem = MockItem(id: "a1", entityId: "e1", date: now2)
+            await archiveSource.addItem(archiveItem)
+            try await archiveSource.archive(archiveItem)
+            let afterArchive = try await archiveSource.fetchItems(since: nil)
+            verify(afterArchive.isEmpty, "archive: item excluded from fetch")
+            let archivedIds = await archiveSource.archivedIds
+            verify(archivedIds.contains("a1"), "archive: ID recorded in archivedIds")
+
+            // delete removes item from fetchItems
+            let deleteSource = MockMessageSource()
+            let deleteItem = MockItem(id: "d1", entityId: "e1", date: now2)
+            await deleteSource.addItem(deleteItem)
+            try await deleteSource.delete(deleteItem)
+            let afterDelete = try await deleteSource.fetchItems(since: nil)
+            verify(afterDelete.isEmpty, "delete: item excluded from fetch")
+            let deletedIds = await deleteSource.deletedIds
+            verify(deletedIds.contains("d1"), "delete: ID recorded in deletedIds")
+
+            // markRead toggles membership in readIds
+            let readSource = MockMessageSource()
+            let readItem = MockItem(id: "r1", entityId: "e1")
+            await readSource.addItem(readItem)
+            try await readSource.markRead(readItem, read: true)
+            let readIds = await readSource.readIds
+            verify(readIds.contains("r1"), "markRead(true): ID in readIds")
+            try await readSource.markRead(readItem, read: false)
+            let readIdsAfter = await readSource.readIds
+            verify(!readIdsAfter.contains("r1"), "markRead(false): ID removed from readIds")
+
+            // fetchItems(since:) filters by date
+            let sinceSource = MockMessageSource()
+            let recentItem = MockItem(id: "recent", entityId: "e1",
+                                      date: now2.addingTimeInterval(-1_800))   // 30 min ago
+            let oldItem    = MockItem(id: "old",    entityId: "e1",
+                                      date: now2.addingTimeInterval(-86_400))  // 1 day ago
+            await sinceSource.addItem(recentItem)
+            await sinceSource.addItem(oldItem)
+            let cutoff = now2.addingTimeInterval(-3_600)  // 1 hour ago
+            let filtered = try await sinceSource.fetchItems(since: cutoff)
+            verify(filtered.count == 1,           "fetchItems(since:): 1 item returned")
+            verify(filtered[0].id == "recent",    "fetchItems(since:): recent item kept")
+
+            // send records reply
+            let sendSource = MockMessageSource()
+            let reply = Reply(itemId: "m1", body: "Thanks!", toAddress: "reply@example.com")
+            try await sendSource.send(reply)
+            let sentReplies = await sendSource.sentReplies
+            verify(sentReplies.count == 1,                          "send: 1 reply recorded")
+            verify(sentReplies[0].body == "Thanks!",                "send: body correct")
+            verify(sentReplies[0].toAddress == "reply@example.com", "send: toAddress correct")
+
+        } catch {
+            verify(false, "MockMessageSource: unexpected throw — \(error)")
+        }
+
         // MARK: Summary
 
         print("\n─────────────────────────────────────────")
         if failed == 0 {
-            print("  ✅  All \(passed) checks passed — Phase 0 green baseline confirmed.")
+            print("  ✅  All \(passed) checks passed — Phase 3 green baseline confirmed.")
         } else {
             print("  ❌  \(failed) check(s) FAILED out of \(passed + failed).")
         }
