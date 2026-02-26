@@ -1,4 +1,4 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.2
 import PackageDescription
 
 let package = Package(
@@ -32,22 +32,32 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-markdown", from: "0.4.0"),
     ],
     targets: [
-        // Shared library — all business logic, models, and views
-        // External package products are linked here once adapters are implemented (Phase 3+)
+        // ReceptacleCore — pure Swift, no SwiftData macros, no SwiftUI.
+        // Compiles with swift CLI tools (no Xcode required). Used by tests.
+        // All SPM dependency products are commented out here; they are wired
+        // in Xcode targets directly as the phases progress.
+        //
+        // External package products commented out — uncomment as each phase lands:
+        //   Phase 3:  SwiftMail
+        //   Phase 4:  GoogleSignIn, MSAL
+        //   Phase 5:  FeedKit
+        //   Phase 8:  OpenAI, SwiftAnthropic, WhisperKit
+        //   Phase 11: Textual, swift-markdown
         .target(
             name: "Receptacle",
-            dependencies: [
-                // Phase 3: .product(name: "SwiftMail", package: "SwiftMail"),
-                // Phase 4: .product(name: "GoogleSignIn", package: "GoogleSignIn-iOS"),
-                // Phase 4: .product(name: "MSAL", package: "microsoft-authentication-library-for-objc"),
-                // Phase 5: .product(name: "FeedKit", package: "FeedKit"),
-                // Phase 8: .product(name: "OpenAI", package: "OpenAI"),
-                // Phase 8: .product(name: "SwiftAnthropic", package: "SwiftAnthropic"),
-                // Phase 8: .product(name: "WhisperKit", package: "WhisperKit"),
-                // Phase 11: .product(name: "Textual", package: "textual"),
-                // Phase 11: .product(name: "Markdown", package: "swift-markdown"),
-            ],
-            path: "Shared",
+            dependencies: [],
+            path: "Sources/ReceptacleCore",
+            swiftSettings: [
+                .enableUpcomingFeature("StrictConcurrency"),
+            ]
+        ),
+        // ReceptacleVerify — standalone executable for swift run verification (no Xcode required).
+        // Mirrors the Phase 0 test suite; provides a runnable green baseline while CLI tools
+        // cannot execute .xctest bundles.
+        .executableTarget(
+            name: "ReceptacleVerify",
+            dependencies: ["Receptacle"],
+            path: "Sources/ReceptacleVerify",
             swiftSettings: [
                 .enableUpcomingFeature("StrictConcurrency"),
             ]
@@ -55,7 +65,24 @@ let package = Package(
         .testTarget(
             name: "ReceptacleTests",
             dependencies: ["Receptacle"],
-            path: "ReceptacleTests"
+            path: "ReceptacleTests",
+            // Testing.framework lives in the CLI tools Frameworks dir, not the default search path.
+            // These flags are only needed when building with CLI tools; Xcode finds it automatically.
+            swiftSettings: [
+                .unsafeFlags([
+                    "-F",
+                    "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+                ]),
+            ],
+            linkerSettings: [
+                .unsafeFlags([
+                    "-F",
+                    "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+                    "-framework", "Testing",
+                    "-Xlinker", "-rpath",
+                    "-Xlinker", "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+                ]),
+            ]
         ),
     ]
 )
