@@ -151,7 +151,7 @@ public enum RetentionPolicy: Codable, Sendable {
     }
 }
 
-public enum ReplyTone: Codable, Sendable {
+public enum ReplyTone: Codable, Equatable, Sendable {
     case formal
     case casualClean
     case friendly

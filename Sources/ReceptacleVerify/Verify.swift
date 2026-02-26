@@ -549,11 +549,146 @@ func verify(_ condition: Bool, _ label: String) {
             verify(false, "MockMessageSource: unexpected throw — \(error)")
         }
 
+        // MARK: MockAIProvider
+
+        print("\nMockAIProvider")
+
+        do {
+            // Default responses
+            let mockAI = MockAIProvider()
+            let summary = try await mockAI.summarise(text: "Long email body here.")
+            verify(summary == "Mock summary.", "default summarise result")
+
+            let reframed = try await mockAI.reframe(text: "hey thanks", tone: .formal)
+            verify(reframed == "Mock reframe.", "default reframe result")
+
+            // Call tracking
+            let summariseCount = await mockAI.summariseCalled
+            verify(summariseCount == 1, "summariseCalled == 1 after one call")
+            let lastInput = await mockAI.lastSummariseInput
+            verify(lastInput == "Long email body here.", "lastSummariseInput recorded")
+            let lastTone = await mockAI.lastReframeTone
+            verify(lastTone == .formal, "lastReframeTone recorded")
+
+            // Configured result
+            await mockAI.set(summariseResult: "Custom summary.")
+            let custom = try await mockAI.summarise(text: "anything")
+            verify(custom == "Custom summary.", "set(summariseResult:) respected")
+
+            let summariseCount2 = await mockAI.summariseCalled
+            verify(summariseCount2 == 2, "summariseCalled increments cumulatively")
+
+            // resetCallCounts
+            await mockAI.resetCallCounts()
+            let afterReset = await mockAI.summariseCalled
+            verify(afterReset == 0, "resetCallCounts: summariseCalled reset to 0")
+            let afterResetInput = await mockAI.lastSummariseInput
+            verify(afterResetInput == nil, "resetCallCounts: lastSummariseInput nil")
+
+            // Error injection
+            await mockAI.set(shouldThrow: .rateLimited)
+            var didThrow = false
+            do {
+                _ = try await mockAI.summarise(text: "fail")
+            } catch AIProviderError.rateLimited {
+                didThrow = true
+            }
+            verify(didThrow, "set(shouldThrow: .rateLimited): summarise throws")
+
+            // Clear error injection
+            await mockAI.set(shouldThrow: nil)
+            let recovered = try await mockAI.summarise(text: "recovered")
+            verify(!recovered.isEmpty, "cleared shouldThrow: summarise succeeds again")
+
+        } catch {
+            verify(false, "MockAIProvider: unexpected throw — \(error)")
+        }
+
+        // MARK: AIGate
+
+        print("\nAIGate")
+
+        do {
+            // .never → permissionDenied
+            let mgr1 = AIPermissionManager()
+            await mgr1.set(scope: .never, providerId: "openai", feature: .summarise)
+            let gate1 = AIGate(permissionManager: mgr1)
+            var blocked = false
+            do {
+                _ = try await gate1.perform(providerId: "openai", feature: .summarise) {
+                    "should not reach"
+                }
+            } catch AIProviderError.permissionDenied {
+                blocked = true
+            }
+            verify(blocked, "AIGate: .never → permissionDenied thrown")
+
+            // .always → proceeds
+            let mgr2 = AIPermissionManager()
+            await mgr2.set(scope: .always, providerId: "claude", feature: .summarise)
+            let gate2 = AIGate(permissionManager: mgr2)
+            let result = try await gate2.perform(providerId: "claude", feature: .summarise) {
+                "gate result"
+            }
+            verify(result == "gate result", "AIGate: .always → operation result returned")
+
+            // .askEachTime → proceeds (UI confirms externally)
+            let mgr3 = AIPermissionManager()
+            await mgr3.set(scope: .askEachTime, providerId: "claude", feature: .reframeTone)
+            let gate3 = AIGate(permissionManager: mgr3)
+            let askResult = try await gate3.perform(providerId: "claude", feature: .reframeTone) {
+                "ask result"
+            }
+            verify(askResult == "ask result", "AIGate: .askEachTime → operation proceeds")
+
+            // Entity override: global .always, entity .never
+            let mgr4 = AIPermissionManager()
+            await mgr4.set(scope: .always, providerId: "openai", feature: .summarise)
+            await mgr4.set(scope: .never,  providerId: "openai", feature: .summarise,
+                           entityId: "private-entity")
+            let gate4 = AIGate(permissionManager: mgr4)
+
+            let globalOK = try await gate4.perform(providerId: "openai", feature: .summarise) {
+                "global ok"
+            }
+            verify(globalOK == "global ok", "AIGate: global .always proceeds without entity")
+
+            var entityBlocked = false
+            do {
+                _ = try await gate4.perform(
+                    providerId: "openai", feature: .summarise, entityId: "private-entity"
+                ) { "blocked" }
+            } catch AIProviderError.permissionDenied {
+                entityBlocked = true
+            }
+            verify(entityBlocked, "AIGate: entity .never blocks even when global is .always")
+
+            // Convenience predicates
+            let mgr5 = AIPermissionManager()
+            await mgr5.set(scope: .always,      providerId: "openai", feature: .summarise)
+            await mgr5.set(scope: .never,       providerId: "openai", feature: .transcribe)
+            await mgr5.set(scope: .askEachTime, providerId: "openai", feature: .reframeTone)
+            let gate5 = AIGate(permissionManager: mgr5)
+
+            let isAlways = await gate5.isAlwaysAllowed(providerId: "openai", feature: .summarise)
+            verify(isAlways, "isAlwaysAllowed: true for .always scope")
+            let isBlocked = await gate5.isBlocked(providerId: "openai", feature: .transcribe)
+            verify(isBlocked, "isBlocked: true for .never scope")
+            let needsConfirm = await gate5.requiresConfirmation(providerId: "openai", feature: .reframeTone)
+            verify(needsConfirm, "requiresConfirmation: true for .askEachTime scope")
+
+            let notAlways = await gate5.isAlwaysAllowed(providerId: "openai", feature: .transcribe)
+            verify(!notAlways, "isAlwaysAllowed: false for .never scope")
+
+        } catch {
+            verify(false, "AIGate: unexpected throw — \(error)")
+        }
+
         // MARK: Summary
 
         print("\n─────────────────────────────────────────")
         if failed == 0 {
-            print("  ✅  All \(passed) checks passed — Phase 7 green baseline confirmed.")
+            print("  ✅  All \(passed) checks passed — Phase 8 green baseline confirmed.")
         } else {
             print("  ❌  \(failed) check(s) FAILED out of \(passed + failed).")
         }

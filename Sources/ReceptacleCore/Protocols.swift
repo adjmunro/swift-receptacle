@@ -104,6 +104,7 @@ public protocol AIProvider: Sendable {
 public enum MessageSourceError: Error, Sendable {
     case notAuthenticated
     case networkUnavailable
+    case invalidConfiguration(String)
     case itemNotFound(id: String)
     case sendFailed(reason: String)
     case unsupportedOperation
