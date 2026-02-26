@@ -1,11 +1,13 @@
-// swift-tools-version: 6.2
+// swift-tools-version: 6.0
 import PackageDescription
 
 let package = Package(
     name: "Receptacle",
     platforms: [
-        .macOS(.v26),
-        .iOS(.v26),
+        // SPM minimum — kept low for GitHub Actions runner compatibility (macos-15, Swift 6.0).
+        // The Xcode app targets define their own deployment targets (macOS 26 / iOS 26).
+        .macOS(.v14),
+        .iOS(.v17),
     ],
     products: [
         .library(name: "Receptacle", targets: ["Receptacle"]),

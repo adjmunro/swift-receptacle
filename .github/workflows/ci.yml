@@ -1,0 +1,27 @@
+# ci.yml — runs on every push and pull request to main.
+# Uses a standard GitHub-hosted runner (macos-15, Swift 6.0).
+# Package.swift targets macOS 14 / iOS 17 so the SPM minimum is
+# compatible with the runner; actual app targets stay at macOS 26 / iOS 26.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-verify:
+    name: Build + Verify
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build (ReceptacleCore + ReceptacleVerify)
+        run: swift build
+
+      - name: Run verify suite
+        run: swift run ReceptacleVerify

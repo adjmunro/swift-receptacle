@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- ExportOptions.plist — used by xcodebuild -exportArchive in release.yml.
+     TEAM_ID_PLACEHOLDER is replaced at release time via sed with APPLE_TEAM_ID secret. -->
+<plist version="1.0">
+<dict>
+    <!-- Developer ID: distributes outside the Mac App Store, enables Gatekeeper notarisation -->
+    <key>method</key>
+    <string>developer-id</string>
+
+    <key>teamID</key>
+    <string>TEAM_ID_PLACEHOLDER</string>
+
+    <!-- automatic: Xcode picks the Developer ID cert from the keychain automatically -->
+    <key>signingStyle</key>
+    <string>automatic</string>
+
+    <!-- Strip Swift standard library symbols to reduce .app size -->
+    <key>stripSwiftSymbols</key>
+    <true/>
+</dict>
+</plist>

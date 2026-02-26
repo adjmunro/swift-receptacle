@@ -1,0 +1,212 @@
+# release.yml — triggered by pushing a version tag (e.g. git tag v1.0.0 && git push --tags).
+#
+# Jobs:
+#   1. create-release   — creates the GitHub Release (GitHub-hosted runner)
+#   2. build-release    — archives, signs, notarises, packages DMG (self-hosted runner)
+#   3. update-cask      — updates Casks/receptacle.rb in adjmunro/homebrew-tap
+#   4. verify-cask      — audits the updated cask for correctness
+#
+# ── Self-hosted runner setup (one-time) ──────────────────────────────────────
+# On your Mac, go to: github.com/adjmunro/swift-receptacle → Settings →
+#   Actions → Runners → New self-hosted runner.
+# Follow the macOS instructions. After registering, start the runner:
+#   ~/actions-runner/run.sh
+# The runner will pick up jobs labelled `self-hosted` automatically.
+# Your Mac must be online whenever you push a release tag.
+#
+# ── Required GitHub secrets ──────────────────────────────────────────────────
+# HOMEBREW_TAP_TOKEN     — fine-grained PAT: Contents: Read+Write on adjmunro/homebrew-tap
+# APPLE_TEAM_ID          — 10-character Apple Developer Team ID (e.g. ABC1234XYZ)
+# NOTARISATION_API_KEY   — App Store Connect API key (.p8 file contents, with -----BEGIN…)
+# NOTARISATION_API_KEY_ID — Key ID shown in App Store Connect (e.g. ABC123DEF4)
+# NOTARISATION_API_ISSUER — Issuer ID (UUID, shown in App Store Connect)
+#
+# ── Xcode project prerequisite ───────────────────────────────────────────────
+# build-release requires Receptacle.xcodeproj with a macOS "Receptacle" scheme.
+# This will be created as part of Phase 3. Until then, build-release will
+# exit with a clear error and the subsequent jobs will be skipped.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+env:
+  SCHEME: Receptacle
+  APP_NAME: Receptacle
+  ARCHIVE_PATH: build/Receptacle.xcarchive
+  EXPORT_PATH: build/export
+
+jobs:
+  # ── 1. Create GitHub Release ─────────────────────────────────────────────
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          gh release create "${{ github.ref_name }}" \
+            --title "Receptacle ${VERSION}" \
+            --notes "## Receptacle ${VERSION}
+
+### Install via Homebrew
+\`\`\`sh
+brew install --cask adjmunro/tap/receptacle
+\`\`\`
+
+### Manual download
+See the assets below for the \`.dmg\` installer."
+
+  # ── 2. Build, sign, notarise, and package the .app ───────────────────────
+  # Requires: self-hosted runner on Mac with Xcode 26.3+
+  # Requires: Receptacle.xcodeproj (created in Phase 3)
+  build-release:
+    name: Build + Notarise + Package
+    needs: create-release
+    runs-on: self-hosted
+    outputs:
+      sha256: ${{ steps.sha.outputs.sha256 }}
+
+    env:
+      VERSION: ${{ needs.create-release.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check Xcode project exists
+        run: |
+          if [ ! -d "Receptacle.xcodeproj" ]; then
+            echo "⚠️  Receptacle.xcodeproj not found."
+            echo "    Create it in Xcode (Phase 3) before triggering a release."
+            echo "    See docs/XCODE_PROJECT.md for setup instructions."
+            exit 1
+          fi
+
+      - name: Archive (xcodebuild)
+        run: |
+          xcodebuild archive \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -destination "generic/platform=macOS" \
+            -archivePath "$ARCHIVE_PATH" \
+            CODE_SIGN_IDENTITY="Developer ID Application" \
+            DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
+            | xcpretty || cat /dev/stdin
+
+      - name: Inject Team ID into ExportOptions
+        run: |
+          sed "s/TEAM_ID_PLACEHOLDER/${{ secrets.APPLE_TEAM_ID }}/g" \
+            .github/ExportOptions.plist > /tmp/ExportOptions.plist
+
+      - name: Export archive (Developer ID)
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath "$ARCHIVE_PATH" \
+            -exportOptionsPlist /tmp/ExportOptions.plist \
+            -exportPath "$EXPORT_PATH"
+
+      - name: Write notarisation API key
+        run: |
+          mkdir -p /tmp/notary-keys
+          printf '%s' "${{ secrets.NOTARISATION_API_KEY }}" > /tmp/notary-keys/AuthKey.p8
+
+      - name: Notarise DMG
+        run: |
+          DMG="Receptacle-${VERSION}.dmg"
+          # Create DMG from signed .app before notarising
+          hdiutil create \
+            -volname "Receptacle ${VERSION}" \
+            -srcfolder "${EXPORT_PATH}/${APP_NAME}.app" \
+            -ov -format UDZO \
+            "$DMG"
+          # Submit for notarisation (waits for Apple's response, typically 1–5 min)
+          xcrun notarytool submit "$DMG" \
+            --key      /tmp/notary-keys/AuthKey.p8 \
+            --key-id   "${{ secrets.NOTARISATION_API_KEY_ID }}" \
+            --issuer   "${{ secrets.NOTARISATION_API_ISSUER }}" \
+            --team-id  "${{ secrets.APPLE_TEAM_ID }}" \
+            --wait
+          # Staple the notarisation ticket into the DMG
+          xcrun stapler staple "$DMG"
+          echo "DMG_PATH=$DMG" >> "$GITHUB_ENV"
+
+      - name: Compute sha256
+        id: sha
+        run: |
+          HASH=$(shasum -a 256 "$DMG_PATH" | awk '{print $1}')
+          echo "sha256=${HASH}" >> "$GITHUB_OUTPUT"
+          echo "${HASH}  ${DMG_PATH}" > "${DMG_PATH}.sha256"
+
+      - name: Upload assets to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.ref_name }}" \
+            "$DMG_PATH" "${DMG_PATH}.sha256"
+
+      - name: Clean up notarisation key
+        if: always()
+        run: rm -rf /tmp/notary-keys
+
+  # ── 3. Update Homebrew cask ───────────────────────────────────────────────
+  update-cask:
+    name: Update Homebrew Cask
+    needs: [create-release, build-release]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout homebrew-tap
+        uses: actions/checkout@v4
+        with:
+          repository: adjmunro/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: Update version and sha256 in cask
+        run: |
+          VERSION="${{ needs.create-release.outputs.version }}"
+          SHA256="${{ needs.build-release.outputs.sha256 }}"
+          CASK="homebrew-tap/Casks/receptacle.rb"
+
+          sed -i "s/version \"[^\"]*\"/version \"${VERSION}\"/" "$CASK"
+          sed -i "s/sha256 \"[^\"]*\"/sha256 \"${SHA256}\"/" "$CASK"
+
+          echo "Updated cask to version ${VERSION} (${SHA256})"
+          cat "$CASK"
+
+      - name: Commit and push
+        run: |
+          cd homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/receptacle.rb
+          git commit -m "receptacle: update to ${{ needs.create-release.outputs.version }}"
+          git push
+
+  # ── 4. Audit the updated cask ─────────────────────────────────────────────
+  verify-cask:
+    name: Audit Cask
+    needs: [create-release, update-cask]
+    runs-on: macos-15
+
+    steps:
+      - name: Tap and audit
+        run: |
+          brew tap adjmunro/tap
+          brew audit --cask adjmunro/tap/receptacle && echo "✅ Cask audit passed"
