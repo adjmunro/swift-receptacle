@@ -35,6 +35,29 @@ public struct ItemSnapshot: Sendable {
     }
 }
 
+// MARK: - Entity sort key
+
+/// Comparable key for the canonical inbox ordering:
+/// importanceLevel descending, then displayName ascending.
+///
+/// Extracted from the view layer so sorting can be unit-tested without SwiftUI.
+public struct EntitySortKey: Comparable, Sendable {
+    public var importanceLevel: ImportanceLevel
+    public var displayName: String
+
+    public init(importanceLevel: ImportanceLevel, displayName: String) {
+        self.importanceLevel = importanceLevel
+        self.displayName = displayName
+    }
+
+    public static func < (lhs: EntitySortKey, rhs: EntitySortKey) -> Bool {
+        if lhs.importanceLevel != rhs.importanceLevel {
+            return lhs.importanceLevel > rhs.importanceLevel  // higher importance first
+        }
+        return lhs.displayName < rhs.displayName              // tie-break alphabetically
+    }
+}
+
 /// Lightweight snapshot of an entity used by `RuleEngine`.
 public struct EntitySnapshot: Sendable {
     public var id: String
@@ -58,6 +81,27 @@ public struct EntitySnapshot: Sendable {
         self.importanceLevel = importanceLevel
         self.importancePatterns = importancePatterns
         self.subRules = subRules
+    }
+}
+
+// MARK: - EntitySnapshot UI helpers
+
+extension EntitySnapshot {
+    /// Returns the canonical sort key for this entity (used by EntityListView).
+    public var sortKey: EntitySortKey {
+        EntitySortKey(importanceLevel: importanceLevel, displayName: id)
+    }
+
+    /// Whether automatic / swipe-initiated deletion is permitted.
+    /// `.protected` entities are shielded; all other levels allow it.
+    public var allowsAutoDelete: Bool {
+        protectionLevel != .protected
+    }
+
+    /// Whether the "Delete All" bulk action should be exposed.
+    /// Only `.apocalyptic` entities offer this shortcut.
+    public var showsDeleteAll: Bool {
+        protectionLevel == .apocalyptic
     }
 }
 

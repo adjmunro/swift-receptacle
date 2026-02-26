@@ -125,6 +125,39 @@ func verify(_ condition: Bool, _ label: String) {
         verify(r7.itemsToDelete.isEmpty,  "empty items: delete list empty")
         verify(r7.itemsToArchive.isEmpty, "empty items: archive list empty")
 
+        // MARK: EntitySortKey
+
+        print("\nEntitySortKey")
+        let k1 = EntitySortKey(importanceLevel: .critical,  displayName: "Zara")
+        let k2 = EntitySortKey(importanceLevel: .important, displayName: "Alice")
+        let k3 = EntitySortKey(importanceLevel: .normal,    displayName: "Alice")
+        let k4 = EntitySortKey(importanceLevel: .normal,    displayName: "Bob")
+        verify(k1 < k2, "critical sorts before important")
+        verify(k2 < k3, "important sorts before normal")
+        verify(k3 < k4, "same level: Alice before Bob (alphabetical)")
+        verify(!(k4 < k3), "same level: Bob not before Alice")
+
+        let unsorted = [k4, k2, k1, k3]
+        let sorted = unsorted.sorted()
+        verify(sorted[0] == k1, "sort[0] = critical/Zara")
+        verify(sorted[1] == k2, "sort[1] = important/Alice")
+        verify(sorted[2] == k3, "sort[2] = normal/Alice")
+        verify(sorted[3] == k4, "sort[3] = normal/Bob")
+
+        // MARK: EntitySnapshot — action availability
+
+        print("\nEntitySnapshot action availability")
+        let protectedSnap   = EntitySnapshot(id: "p", retentionPolicy: .keepAll, protectionLevel: .protected)
+        let normalSnap      = EntitySnapshot(id: "n", retentionPolicy: .keepAll, protectionLevel: .normal)
+        let apocalypticSnap = EntitySnapshot(id: "a", retentionPolicy: .keepAll, protectionLevel: .apocalyptic)
+
+        verify(!protectedSnap.allowsAutoDelete,    "protected: no auto-delete")
+        verify(!protectedSnap.showsDeleteAll,      "protected: no deleteAll")
+        verify(normalSnap.allowsAutoDelete,        "normal: allows auto-delete")
+        verify(!normalSnap.showsDeleteAll,         "normal: no deleteAll shortcut")
+        verify(apocalypticSnap.allowsAutoDelete,   "apocalyptic: allows auto-delete")
+        verify(apocalypticSnap.showsDeleteAll,     "apocalyptic: shows deleteAll")
+
         // MARK: RuleEngine — Phase 1 additions
 
         print("\nRuleEngine (Phase 1)")

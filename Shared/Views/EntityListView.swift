@@ -1,65 +1,130 @@
 import SwiftUI
 import SwiftData
 
-/// Top-level inbox: a list of `Entity` rows ordered by importance then recency.
+// MARK: - EntityListView
+
+/// Top-level inbox: a list of Entity rows ordered by importance then name.
 ///
-/// - `.critical` / `.important` entities float to the top.
-/// - Swipe actions adapt to `protectionLevel`:
-///   - `.protected`: no destructive swipe actions
-///   - `.apocalyptic`: "Delete All" swipe action available
-/// - Tap → `PostFeedView` for that entity
+/// Ordering rules (via `EntitySortKey`):
+///   - `.critical` / `.important` entities float to the top
+///   - Within the same importance level, alphabetical by displayName
+///
+/// Swipe actions are gated by `protectionLevel`:
+///   - `.protected`   → no destructive actions
+///   - `.normal`      → trailing "Archive all" action
+///   - `.apocalyptic` → leading "Delete All" action (red, destructive)
 struct EntityListView: View {
-    @Query(sort: \Entity.displayName) private var entities: [Entity]
-    @State private var selectedEntityId: String?
+    @Query private var entities: [Entity]
+    @Binding var selectedEntity: Entity?
+
+    // MARK: Computed
 
     var sortedEntities: [Entity] {
         entities.sorted {
-            if $0.importanceLevel != $1.importanceLevel {
-                return $0.importanceLevel > $1.importanceLevel
-            }
-            return $0.displayName < $1.displayName
+            let lk = EntitySortKey(importanceLevel: $0.importanceLevel, displayName: $0.displayName)
+            let rk = EntitySortKey(importanceLevel: $1.importanceLevel, displayName: $1.displayName)
+            return lk < rk
         }
     }
 
+    // MARK: Body
+
     var body: some View {
-        List(sortedEntities, selection: $selectedEntityId) { entity in
+        List(sortedEntities, selection: $selectedEntity) { entity in
             EntityRowView(entity: entity)
-                .tag(entity.id.uuidString)
+                .tag(entity as Entity?)
+                // Trailing swipe: archive (normal + apocalyptic)
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    if entity.protectionLevel != .protected {
+                        Button {
+                            // Phase 3: call IMAPSource.archive for all items
+                        } label: {
+                            Label("Archive All", systemImage: "archivebox")
+                        }
+                        .tint(.orange)
+                    }
+                }
+                // Leading swipe: delete all (apocalyptic only)
+                .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                    if entity.protectionLevel == .apocalyptic {
+                        Button(role: .destructive) {
+                            // Phase 3: delete all items for this entity
+                        } label: {
+                            Label("Delete All", systemImage: "trash.fill")
+                        }
+                    }
+                }
         }
         .navigationTitle("Inbox")
+        .listStyle(.sidebar)
     }
 }
+
+// MARK: - EntityRowView
 
 struct EntityRowView: View {
     let entity: Entity
 
     var body: some View {
-        HStack {
-            // Importance indicator
-            if entity.importanceLevel >= .important {
-                Circle()
-                    .fill(entity.importanceLevel == .critical ? Color.red : Color.orange)
-                    .frame(width: 8, height: 8)
-            }
+        HStack(spacing: 10) {
+            // Importance indicator dot
+            importanceDot
+
             VStack(alignment: .leading, spacing: 2) {
                 Text(entity.displayName)
                     .font(.headline)
-                Text(entity.retentionPolicy.displayName)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+
+                HStack(spacing: 6) {
+                    Text(entity.retentionPolicy.displayName)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    if entity.protectionLevel == .protected {
+                        Label("Protected", systemImage: "lock.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .labelStyle(.iconOnly)
+                    } else if entity.protectionLevel == .apocalyptic {
+                        Label("Ephemeral", systemImage: "bolt.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .labelStyle(.iconOnly)
+                    }
+                }
             }
+
+            Spacer()
+        }
+        .contentShape(Rectangle())
+    }
+
+    @ViewBuilder
+    private var importanceDot: some View {
+        switch entity.importanceLevel {
+        case .critical:
+            Circle()
+                .fill(Color.red)
+                .frame(width: 9, height: 9)
+        case .important:
+            Circle()
+                .fill(Color.orange)
+                .frame(width: 9, height: 9)
+        case .normal:
+            Color.clear
+                .frame(width: 9, height: 9)
         }
     }
 }
 
-extension RetentionPolicy {
-    var displayName: String {
-        switch self {
-        case .keepAll: "Keep all"
-        case .keepLatest(let n): "Keep latest \(n)"
-        case .keepDays(let n): "Keep \(n) days"
-        case .autoArchive: "Auto-archive"
-        case .autoDelete: "Auto-delete"
-        }
+// MARK: - Preview
+
+#Preview("Entity List") {
+    NavigationSplitView {
+        EntityListView(selectedEntity: .constant(nil))
+            .navigationTitle("Inbox")
+    } detail: {
+        Text("Select an entity")
+            .foregroundStyle(.secondary)
     }
+    .modelContainer(PreviewData.container)
 }
