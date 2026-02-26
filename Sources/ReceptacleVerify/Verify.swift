@@ -248,7 +248,43 @@ func verify(_ condition: Bool, _ label: String) {
         let globalStillAlways = await manager.scope(for: "openai", feature: .summarise)
         verify(globalStillAlways == .always, "global scope unchanged after entity override")
 
-        // MARK: MockMessageSource
+        // MARK: IMAPProviderType
+
+        print("\nIMAPProviderType")
+
+        // Provider detection from hostname
+        verify(IMAPProviderType.detect(fromHost: "imap.gmail.com")        == .gmail,   "detect gmail.com → .gmail")
+        verify(IMAPProviderType.detect(fromHost: "smtp.googlemail.com")   == .gmail,   "detect googlemail.com → .gmail")
+        verify(IMAPProviderType.detect(fromHost: "imap.mail.me.com")      == .iCloud,  "detect me.com → .iCloud")
+        verify(IMAPProviderType.detect(fromHost: "imap.icloud.com")       == .iCloud,  "detect icloud.com → .iCloud")
+        verify(IMAPProviderType.detect(fromHost: "outlook.office365.com") == .outlook, "detect office365 → .outlook")
+        verify(IMAPProviderType.detect(fromHost: "imap.hotmail.com")      == .outlook, "detect hotmail → .outlook")
+        verify(IMAPProviderType.detect(fromHost: "mail.example.com")      == .custom,  "detect custom host → .custom")
+
+        // Default configs
+        verify(IMAPProviderType.gmail.defaultHost   == "imap.gmail.com",          "gmail default host")
+        verify(IMAPProviderType.gmail.defaultPort   == 993,                        "gmail default port")
+        verify(IMAPProviderType.gmail.defaultUseTLS == true,                       "gmail uses TLS")
+        verify(IMAPProviderType.gmail.defaultArchiveFolder == "[Gmail]/All Mail",  "gmail archive folder")
+        verify(IMAPProviderType.gmail.defaultAuthMethod    == .oauth2,             "gmail auth = oauth2")
+
+        verify(IMAPProviderType.iCloud.defaultHost   == "imap.mail.me.com",        "iCloud default host")
+        verify(IMAPProviderType.iCloud.defaultArchiveFolder == "Archive",           "iCloud archive folder")
+        verify(IMAPProviderType.iCloud.defaultAuthMethod    == .password,           "iCloud auth = password")
+
+        verify(IMAPProviderType.outlook.defaultHost   == "outlook.office365.com",  "outlook default host")
+        verify(IMAPProviderType.outlook.defaultArchiveFolder == "Archive",          "outlook archive folder")
+        verify(IMAPProviderType.outlook.defaultAuthMethod    == .oauth2,            "outlook auth = oauth2")
+
+        verify(IMAPProviderType.custom.defaultAuthMethod == .password,              "custom auth = password")
+
+        // Display names
+        verify(IMAPProviderType.gmail.displayName   == "Gmail",       "gmail displayName")
+        verify(IMAPProviderType.iCloud.displayName  == "iCloud",      "iCloud displayName")
+        verify(IMAPProviderType.outlook.displayName == "Outlook",     "outlook displayName")
+        verify(IMAPProviderType.custom.displayName  == "Custom IMAP", "custom displayName")
+
+        // MockMessageSource
 
         print("\nMockMessageSource")
 
@@ -326,7 +362,7 @@ func verify(_ condition: Bool, _ label: String) {
 
         print("\n─────────────────────────────────────────")
         if failed == 0 {
-            print("  ✅  All \(passed) checks passed — Phase 3 green baseline confirmed.")
+            print("  ✅  All \(passed) checks passed — Phase 4 green baseline confirmed.")
         } else {
             print("  ❌  \(failed) check(s) FAILED out of \(passed + failed).")
         }

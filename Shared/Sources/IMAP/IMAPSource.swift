@@ -1,4 +1,5 @@
 import Foundation
+import Receptacle  // IMAPProviderType, IMAPAuthMethod live in ReceptacleCore
 
 // MARK: - IMAP Account Configuration
 
@@ -9,54 +10,43 @@ import Foundation
 public struct IMAPAccountConfig: Sendable, Codable {
     public var accountId: String
     public var displayName: String
+    public var providerType: IMAPProviderType
     public var host: String
     public var port: Int           // 993 for IMAPS, 143 for STARTTLS
     public var useTLS: Bool        // true → IMAPS; false → STARTTLS
     public var username: String
     public var authMethod: IMAPAuthMethod
-    /// Folder name to use for archiving (provider-specific defaults applied if nil)
-    public var archiveFolder: String?
+    /// Override for the archive folder name. Nil → use providerType.defaultArchiveFolder.
+    public var archiveFolderOverride: String?
 
     public init(
         accountId: String,
         displayName: String,
-        host: String,
-        port: Int = 993,
-        useTLS: Bool = true,
+        providerType: IMAPProviderType,
+        host: String? = nil,
+        port: Int? = nil,
+        useTLS: Bool? = nil,
         username: String,
-        authMethod: IMAPAuthMethod,
-        archiveFolder: String? = nil
+        authMethod: IMAPAuthMethod? = nil,
+        archiveFolderOverride: String? = nil
     ) {
         self.accountId = accountId
         self.displayName = displayName
-        self.host = host
-        self.port = port
-        self.useTLS = useTLS
+        self.providerType = providerType
+        self.host = host ?? providerType.defaultHost
+        self.port = port ?? providerType.defaultPort
+        self.useTLS = useTLS ?? providerType.defaultUseTLS
         self.username = username
-        self.authMethod = authMethod
-        self.archiveFolder = archiveFolder
+        self.authMethod = authMethod ?? providerType.defaultAuthMethod
+        self.archiveFolderOverride = archiveFolderOverride
     }
 
     // MARK: Provider-specific defaults
 
     /// The folder name to move messages to when archiving.
     public var effectiveArchiveFolder: String {
-        if let custom = archiveFolder { return custom }
-        // Gmail uses a special All Mail folder
-        if host.lowercased().contains("gmail") || host.lowercased().contains("google") {
-            return "[Gmail]/All Mail"
-        }
-        return "Archive"
+        archiveFolderOverride ?? providerType.defaultArchiveFolder
     }
-}
-
-public enum IMAPAuthMethod: String, Sendable, Codable {
-    /// App-specific password (iCloud) or standard credentials (custom domain).
-    /// Credential fetched from Keychain at connection time.
-    case password
-
-    /// OAuth2 Bearer token — token fetched/refreshed via OAuthManager (Phase 4).
-    case oauth2
 }
 
 // MARK: - IMAPSource
@@ -64,27 +54,22 @@ public enum IMAPAuthMethod: String, Sendable, Codable {
 /// `MessageSource` adapter backed by SwiftMail (Cocoanetics/SwiftMail).
 ///
 /// All four IMAP providers use this single adapter — authentication method
-/// is the only difference, handled at connection time.
+/// is the only difference, handled at connection time via `credential()`.
 ///
-/// ## SwiftMail API notes (adjust when Xcode + SwiftMail are set up):
-/// SwiftMail uses `IMAPServer` and `SMTPServer` actors. Approximate API shape:
-/// ```
-/// let server = IMAPServer(hostname: host, port: port)
-/// try await server.login(username: username, password: credential)
+/// ## SwiftMail API (wire in Xcode when Phase 4 is complete):
+/// ```swift
+/// let server = IMAPServer(hostname: config.host, port: UInt16(config.port))
+/// try await server.login(username: config.username, password: credential)
 /// let messages = try await server.messages(in: "INBOX", since: since)
 /// try await server.moveMessages(uids: [uid], from: "INBOX", to: archiveFolder)
 /// try await server.setFlags([.deleted], forUIDs: [uid], in: "INBOX")
 /// try await server.expunge(in: "INBOX")
 /// ```
-/// The `fetchItems(since:)` implementation maps `SwiftMail.Message` objects
-/// to `EmailItem` @Model instances. The entity ID is resolved by matching the
-/// From/Reply-To address against the Contact store (app layer responsibility
-/// — pass an `entityResolver` closure).
 actor IMAPSource: MessageSource {
 
     let config: IMAPAccountConfig
 
-    nonisolated var id: String      { config.accountId }
+    nonisolated var id: String       { config.accountId }
     nonisolated var sourceId: String { config.accountId }
     nonisolated var displayName: String { config.displayName }
     nonisolated var sourceType: SourceType { .email }
@@ -101,18 +86,23 @@ actor IMAPSource: MessageSource {
 
     // MARK: - Credential resolution
 
-    /// Returns the credential to use for login.
-    /// - Password accounts: fetch from Keychain.
-    /// - OAuth2 accounts: delegate to OAuthManager (Phase 4).
+    /// Returns the credential (password or OAuth Bearer token) for IMAP login.
+    ///
+    /// - Password accounts: fetched from Keychain via `KeychainHelper`.
+    /// - OAuth2 accounts: delegated to `OAuthManager` (silent refresh built-in).
     private func credential() async throws -> String {
         switch config.authMethod {
         case .password:
-            // Phase 3: KeychainHelper.password(account: config.accountId)
-            throw MessageSourceError.notAuthenticated
+            let key = KeychainHelper.passwordKey(accountId: config.accountId)
+            guard let password = try KeychainHelper.read(account: key) else {
+                throw MessageSourceError.notAuthenticated
+            }
+            return password
 
         case .oauth2:
-            // Phase 4: OAuthManager.shared.accessToken(for: provider, accountId: config.accountId)
-            throw MessageSourceError.notAuthenticated
+            let provider: OAuthProvider = config.providerType == .gmail ? .google : .microsoft
+            return try await OAuthManager.shared.accessToken(for: provider,
+                                                              accountId: config.accountId)
         }
     }
 
@@ -130,7 +120,7 @@ actor IMAPSource: MessageSource {
         //
         // return try messages.map { msg -> EmailItem in
         //     let entityId = entityResolver(msg.from.address) ?? "unknown"
-        //     let item = EmailItem(
+        //     return EmailItem(
         //         id: "\(config.accountId):\(folder):\(msg.uid)",
         //         entityId: entityId,
         //         sourceId: config.accountId,
@@ -144,13 +134,12 @@ actor IMAPSource: MessageSource {
         //         bodyHTML: msg.htmlBody,
         //         bodyPlain: msg.plainBody
         //     )
-        //     return item
         // }
         return []
     }
 
     func send(_ reply: Reply) async throws {
-        // Phase 3 — SwiftMail SMTPServer sketch:
+        // Phase 4 — SwiftMail SMTPServer sketch:
         //
         // let cred  = try await credential()
         // let smtp  = SMTPServer(hostname: smtpHost, port: 587)
@@ -160,7 +149,7 @@ actor IMAPSource: MessageSource {
         //     from: config.username,
         //     to: [reply.toAddress],
         //     cc: reply.ccAddresses,
-        //     subject: "Re: …",   // fetched from original item
+        //     subject: "Re: …",  // fetched from original item
         //     body: reply.body,
         //     inReplyTo: reply.itemId
         // )
@@ -169,9 +158,7 @@ actor IMAPSource: MessageSource {
     }
 
     func archive(_ item: any Item) async throws {
-        // Phase 3:
-        // IMAP command: UID MOVE <uid> <archiveFolder>
-        //
+        // Phase 4:
         // let cred   = try await credential()
         // let server = IMAPServer(hostname: config.host, port: UInt16(config.port))
         // try await server.login(username: config.username, password: cred)
@@ -182,9 +169,7 @@ actor IMAPSource: MessageSource {
     }
 
     func delete(_ item: any Item) async throws {
-        // Phase 3:
-        // IMAP commands: UID STORE <uid> +FLAGS (\Deleted)  →  EXPUNGE
-        //
+        // Phase 4:
         // let cred   = try await credential()
         // let server = IMAPServer(hostname: config.host, port: UInt16(config.port))
         // try await server.login(username: config.username, password: cred)
@@ -195,9 +180,7 @@ actor IMAPSource: MessageSource {
     }
 
     func markRead(_ item: any Item, read: Bool) async throws {
-        // Phase 3:
-        // IMAP command: UID STORE <uid> +FLAGS (\Seen)  /  -FLAGS (\Seen)
-        //
+        // Phase 4:
         // let cred   = try await credential()
         // let server = IMAPServer(hostname: config.host, port: UInt16(config.port))
         // try await server.login(username: config.username, password: cred)

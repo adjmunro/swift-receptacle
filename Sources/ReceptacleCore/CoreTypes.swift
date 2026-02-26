@@ -5,6 +5,80 @@
 /// exclusively by Xcode app targets (macOS + iOS).
 import Foundation
 
+// MARK: - IMAP Provider
+
+/// Identifies the email provider for an IMAP account.
+/// Used to select default server settings and the correct auth strategy.
+public enum IMAPProviderType: String, Codable, CaseIterable, Sendable {
+    case gmail
+    case iCloud
+    case outlook
+    case custom
+
+    /// Infers the provider from a hostname (lowercased comparison).
+    public static func detect(fromHost host: String) -> IMAPProviderType {
+        let h = host.lowercased()
+        if h.contains("gmail") || h.contains("google") { return .gmail }
+        if h.contains("icloud") || h.contains("me.com") || h.contains("mac.com") { return .iCloud }
+        if h.contains("outlook") || h.contains("hotmail") || h.contains("live.com")
+            || h.contains("office365") { return .outlook }
+        return .custom
+    }
+
+    /// Canonical IMAP hostname for the provider.
+    public var defaultHost: String {
+        switch self {
+        case .gmail:   return "imap.gmail.com"
+        case .iCloud:  return "imap.mail.me.com"
+        case .outlook: return "outlook.office365.com"
+        case .custom:  return ""
+        }
+    }
+
+    /// Standard IMAP port (993 = IMAPS, 143 = STARTTLS).
+    public var defaultPort: Int {
+        switch self {
+        case .gmail, .iCloud, .outlook: return 993
+        case .custom: return 993
+        }
+    }
+
+    public var defaultUseTLS: Bool { true }
+
+    /// Archive folder name used by this provider.
+    public var defaultArchiveFolder: String {
+        switch self {
+        case .gmail:            return "[Gmail]/All Mail"
+        case .iCloud, .outlook: return "Archive"
+        case .custom:           return "Archive"
+        }
+    }
+
+    /// The auth method required by the provider.
+    public var defaultAuthMethod: IMAPAuthMethod {
+        switch self {
+        case .gmail, .outlook: return .oauth2
+        case .iCloud, .custom: return .password
+        }
+    }
+
+    public var displayName: String {
+        switch self {
+        case .gmail:   return "Gmail"
+        case .iCloud:  return "iCloud"
+        case .outlook: return "Outlook"
+        case .custom:  return "Custom IMAP"
+        }
+    }
+}
+
+/// Auth method for an IMAP account — mirrors IMAPAuthMethod in Shared/,
+/// kept here so ReceptacleCore can reference it without Shared/ imports.
+public enum IMAPAuthMethod: String, Codable, CaseIterable, Sendable {
+    case password   // App-specific password (iCloud) or standard credentials
+    case oauth2     // OAuth2 Bearer token (Gmail, Outlook)
+}
+
 // MARK: - Contact & Source types
 
 public enum ContactType: String, Codable, CaseIterable, Sendable {
