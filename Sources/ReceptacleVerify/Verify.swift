@@ -248,7 +248,67 @@ func verify(_ condition: Bool, _ label: String) {
         let globalStillAlways = await manager.scope(for: "openai", feature: .summarise)
         verify(globalStillAlways == .always, "global scope unchanged after entity override")
 
-        // MARK: QuotedRangeDetector
+        // MARK: AttachmentMatcher
+
+        print("\nAttachmentMatcher")
+        let am = AttachmentMatcher()
+
+        // Empty MIME list — passes all
+        let allMIME = AttachmentAction(mimeTypes: [], saveDestination: .iCloudDrive(subfolder: "Test"))
+        verify(am.matchesMIMEType("application/pdf", action: allMIME), "empty mimeTypes: pdf passes")
+        verify(am.matchesMIMEType("image/png",        action: allMIME), "empty mimeTypes: png passes")
+
+        // MIME type match
+        let pdfOnly = AttachmentAction(mimeTypes: ["application/pdf"],
+                                        saveDestination: .iCloudDrive(subfolder: "Receipts"))
+        verify(am.matchesMIMEType("application/pdf", action: pdfOnly),  "matching MIME passes")
+        verify(!am.matchesMIMEType("image/jpeg",      action: pdfOnly),  "non-matching MIME skips")
+
+        // Case-insensitive MIME
+        let upperPDF = AttachmentAction(mimeTypes: ["APPLICATION/PDF"],
+                                         saveDestination: .iCloudDrive(subfolder: "Docs"))
+        verify(am.matchesMIMEType("application/pdf", action: upperPDF), "MIME match is case-insensitive")
+
+        // Multiple MIME types
+        let multiMIME = AttachmentAction(mimeTypes: ["application/pdf", "image/png"],
+                                          saveDestination: .iCloudDrive(subfolder: "Mixed"))
+        verify(am.matchesMIMEType("application/pdf", action: multiMIME), "multi-MIME: pdf matches")
+        verify(am.matchesMIMEType("image/png",        action: multiMIME), "multi-MIME: png matches")
+        verify(!am.matchesMIMEType("audio/mp3",       action: multiMIME), "multi-MIME: mp3 skips")
+
+        // Nil filename pattern — passes all
+        let noPattern = AttachmentAction(filenamePattern: nil, mimeTypes: [],
+                                          saveDestination: .iCloudDrive(subfolder: "All"))
+        verify(am.matchesFilename("receipt.pdf", action: noPattern), "nil pattern: any filename passes")
+
+        // Filename pattern match (case-insensitive substring)
+        let receiptPattern = AttachmentAction(filenamePattern: "receipt", mimeTypes: [],
+                                               saveDestination: .iCloudDrive(subfolder: "Receipts"))
+        verify(am.matchesFilename("amazon-receipt-2026.pdf", action: receiptPattern),
+               "filename pattern: substring match passes")
+        verify(am.matchesFilename("RECEIPT_001.PDF", action: receiptPattern),
+               "filename pattern: case-insensitive match passes")
+        verify(!am.matchesFilename("photo.jpg", action: receiptPattern),
+               "filename pattern: non-matching skips")
+
+        // Combined filter
+        let combined = AttachmentAction(filenamePattern: "receipt", mimeTypes: ["application/pdf"],
+                                         saveDestination: .iCloudDrive(subfolder: "Receipts"))
+        verify(am.matches(filename: "amazon-receipt.pdf",   mimeType: "application/pdf", action: combined),
+               "combined: both pass → matches")
+        verify(!am.matches(filename: "amazon-receipt.pdf",  mimeType: "image/jpeg",      action: combined),
+               "combined: MIME fails → skips")
+        verify(!am.matches(filename: "photo.pdf",           mimeType: "application/pdf", action: combined),
+               "combined: filename fails → skips")
+
+        // skipReason
+        let skipNil = am.skipReason(filename: "doc.pdf", mimeType: "application/pdf", action: pdfOnly)
+        verify(skipNil == nil, "skipReason nil when attachment matches")
+        let skipMsg = am.skipReason(filename: "photo.jpg", mimeType: "image/jpeg", action: pdfOnly)
+        verify(skipMsg != nil,                      "skipReason non-nil when MIME mismatches")
+        verify(skipMsg?.contains("image/jpeg") == true, "skipReason contains MIME type")
+
+        // QuotedRangeDetector
 
         print("\nQuotedRangeDetector")
         let qd = QuotedRangeDetector()
@@ -493,7 +553,7 @@ func verify(_ condition: Bool, _ label: String) {
 
         print("\n─────────────────────────────────────────")
         if failed == 0 {
-            print("  ✅  All \(passed) checks passed — Phase 6 green baseline confirmed.")
+            print("  ✅  All \(passed) checks passed — Phase 7 green baseline confirmed.")
         } else {
             print("  ❌  \(failed) check(s) FAILED out of \(passed + failed).")
         }
