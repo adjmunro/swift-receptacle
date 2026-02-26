@@ -19,6 +19,11 @@ struct PostCardView: View {
     @State private var showQuoted: Bool = false
     @State private var showDeleteConfirm: Bool = false
 
+    // Quoted-range detection — computed once per item.
+    private let detector = QuotedRangeDetector()
+    private var hasQuotedContent: Bool { detector.hasQuotedContent(in: item.summary) }
+    private var collapsedBody: String  { detector.collapsedText(for: item.summary) }
+
     // MARK: Body
 
     var body: some View {
@@ -125,24 +130,27 @@ struct PostCardView: View {
 
     private var bodyContent: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Phase 7: replace with HTMLBodyView(html: item.bodyHTML)
-            Text(item.summary)
+            // Phase 7: replace with HTMLBodyView(html: item.bodyHTML).
+            // For now, show plain-text summary with quoted sections collapsed.
+            Text(showQuoted ? item.summary : collapsedBody)
                 .font(.body)
-                .lineLimit(showQuoted ? nil : 8)
                 .foregroundStyle(.primary)
+                .animation(.easeInOut(duration: 0.15), value: showQuoted)
 
-            // Quoted text toggle (Phase 6: real detection)
-            Button {
-                withAnimation { showQuoted.toggle() }
-            } label: {
-                Label(
-                    showQuoted ? "Hide quoted text" : "Show quoted text",
-                    systemImage: showQuoted ? "quote.bubble" : "quote.bubble.fill"
-                )
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            // Only show the toggle when quoted content was actually detected.
+            if hasQuotedContent {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) { showQuoted.toggle() }
+                } label: {
+                    Label(
+                        showQuoted ? "Hide quoted text" : "Show quoted text",
+                        systemImage: showQuoted ? "quote.bubble" : "quote.bubble.fill"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
     }
 

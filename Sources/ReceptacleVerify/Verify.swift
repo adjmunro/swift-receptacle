@@ -248,7 +248,67 @@ func verify(_ condition: Bool, _ label: String) {
         let globalStillAlways = await manager.scope(for: "openai", feature: .summarise)
         verify(globalStillAlways == .always, "global scope unchanged after entity override")
 
-        // MARK: FeedTypes
+        // MARK: QuotedRangeDetector
+
+        print("\nQuotedRangeDetector")
+        let qd = QuotedRangeDetector()
+
+        // Blockquote detection
+        let htmlWithQuote = "Hello <blockquote>On Wed, you wrote:\nSome text</blockquote> Cheers"
+        let bqRanges = qd.detect(in: htmlWithQuote)
+        verify(bqRanges.contains { $0.kind == .blockquote }, "detect: <blockquote> element")
+        let bqRange = bqRanges.first(where: { $0.kind == .blockquote })!.range
+        verify(htmlWithQuote[bqRange].contains("On Wed"), "blockquote range covers content")
+
+        // Multiple blockquotes
+        let multi = "<blockquote>First</blockquote> text <blockquote>Second</blockquote>"
+        let multiRanges = qd.detect(in: multi).filter { $0.kind == .blockquote }
+        verify(multiRanges.count == 2, "detect: multiple blockquotes")
+
+        // Case-insensitive blockquote
+        let upper = "Text <BLOCKQUOTE>Quoted</BLOCKQUOTE> more"
+        verify(qd.detect(in: upper).contains { $0.kind == .blockquote },
+               "detect: case-insensitive BLOCKQUOTE")
+
+        // GT-prefix detection
+        let gtText = "My reply.\n> Line one\n> Line two\nEnd."
+        let gtRanges = qd.detect(in: gtText)
+        verify(gtRanges.contains { $0.kind == .gtPrefix }, "detect: > prefix lines")
+        verify(gtRanges.filter { $0.kind == .gtPrefix }.count == 1,
+               "detect: consecutive > lines merged into one range")
+
+        // Separated > blocks → two ranges
+        let twoBlocks = "> Block A\nPlain\n> Block B"
+        let twoGt = qd.detect(in: twoBlocks).filter { $0.kind == .gtPrefix }
+        verify(twoGt.count == 2, "detect: separated > blocks produce 2 ranges")
+
+        // Signature separator
+        let sigText = "Hi there.\n-- \nJohn Smith\njohn@example.com"
+        let sigRanges = qd.detect(in: sigText)
+        verify(sigRanges.contains { $0.kind == .signature }, "detect: -- signature separator")
+        let sigRange = sigRanges.first(where: { $0.kind == .signature })!.range
+        verify(sigRange.upperBound == sigText.endIndex, "signature range extends to end")
+
+        // Plain text — no ranges
+        let plain = "Hi! Just checking in. Hope you're well!"
+        verify(qd.detect(in: plain).isEmpty, "detect: plain text returns empty")
+        verify(qd.detect(in: "").isEmpty,    "detect: empty string returns empty")
+
+        // collapsedText helper
+        let mixedText = "My reply here.\n> You wrote this.\n> And this.\nCheers."
+        let collapsed = qd.collapsedText(for: mixedText)
+        verify(collapsed == "My reply here.\n", "collapsedText: text before first quoted range")
+        let noQuote = "No quoted content here."
+        verify(qd.collapsedText(for: noQuote) == noQuote,
+               "collapsedText: full text when no quotes")
+
+        // hasQuotedContent helper
+        verify(qd.hasQuotedContent(in: "<blockquote>Q</blockquote>"),
+               "hasQuotedContent: true for blockquote")
+        verify(!qd.hasQuotedContent(in: "Plain text"),
+               "hasQuotedContent: false for plain text")
+
+        // FeedTypes
 
         print("\nFeedTypes")
 
@@ -275,11 +335,11 @@ func verify(_ condition: Bool, _ label: String) {
         verify(compositeId == "blog:post-42", "makeId builds composite ID")
 
         // plainSummary — HTML stripping
-        let html = "<p>We are pleased to announce <strong>Swift 6.2</strong>.</p>"
-        let plain = FeedItemRecord.plainSummary(from: html)
-        verify(!plain.contains("<"),            "plainSummary: no opening tags")
-        verify(!plain.contains(">"),            "plainSummary: no closing tags")
-        verify(plain.contains("Swift 6.2"),     "plainSummary: content preserved")
+        let feedHtml = "<p>We are pleased to announce <strong>Swift 6.2</strong>.</p>"
+        let feedPlain = FeedItemRecord.plainSummary(from: feedHtml)
+        verify(!feedPlain.contains("<"),            "plainSummary: no opening tags")
+        verify(!feedPlain.contains(">"),            "plainSummary: no closing tags")
+        verify(feedPlain.contains("Swift 6.2"),     "plainSummary: content preserved")
 
         // plainSummary — entity decoding
         let entities = "Swift &amp; Objective-C &lt;rocks&gt; &quot;nice&quot;"
@@ -433,7 +493,7 @@ func verify(_ condition: Bool, _ label: String) {
 
         print("\n─────────────────────────────────────────")
         if failed == 0 {
-            print("  ✅  All \(passed) checks passed — Phase 5 green baseline confirmed.")
+            print("  ✅  All \(passed) checks passed — Phase 6 green baseline confirmed.")
         } else {
             print("  ❌  \(failed) check(s) FAILED out of \(passed + failed).")
         }
