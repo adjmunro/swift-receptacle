@@ -1007,11 +1007,159 @@ func verify(_ condition: Bool, _ label: String) {
         verify(noSource.sourceItemId == nil, "no-source link: sourceItemId nil")
         verify(noSource.isOrphaned,          "no-source link: immediately orphaned")
 
+        // MARK: NoteRecord — revision + append
+
+        print("\nNoteRecord (revision + append)")
+
+        // pushRevision captures current content
+        var noteA = NoteRecord(title: "Meeting", markdownContent: "Original content.")
+        verify(noteA.revisionHistory.isEmpty, "new note: revision history empty")
+        noteA.pushRevision(changeDescription: "AI summarise")
+        verify(noteA.revisionHistory.count == 1,                     "pushRevision: 1 entry")
+        verify(noteA.revisionHistory[0].content == "Original content.", "pushRevision: content captured")
+        verify(noteA.revisionHistory[0].changeDescription == "AI summarise",
+               "pushRevision: description stored")
+
+        // Modify then restore
+        noteA.markdownContent = "AI-modified content."
+        verify(noteA.markdownContent == "AI-modified content.",       "content changed")
+        let didRestore = noteA.restoreRevision(at: 0)
+        verify(didRestore,                                             "restoreRevision returns true")
+        verify(noteA.markdownContent == "Original content.",           "restoreRevision: content restored")
+        verify(noteA.revisionHistory.count == 1,                      "restoreRevision: history preserved")
+
+        // Out-of-bounds restore
+        let badRestore = noteA.restoreRevision(at: 99)
+        verify(!badRestore,                                            "restoreRevision out-of-bounds: false")
+
+        // appendSummary — never replaces
+        var noteB = NoteRecord(title: "Note B", markdownContent: "Existing notes here.")
+        noteB.pushRevision(changeDescription: "AI summarise")
+        noteB.appendSummary("Three bullet points.")
+        verify(noteB.markdownContent.contains("Existing notes here."), "appendSummary: original preserved")
+        verify(noteB.markdownContent.contains("Three bullet points."), "appendSummary: summary present")
+        verify(noteB.markdownContent.count > "Existing notes here.".count, "appendSummary: content grew")
+
+        // Restore undoes the append
+        noteB.restoreRevision(at: 0)
+        verify(noteB.markdownContent == "Existing notes here.",        "restoreRevision undoes appendSummary")
+
+        // Empty note append (no leading separator)
+        var emptyNote = NoteRecord(title: "Empty")
+        emptyNote.appendSummary("First summary.")
+        verify(!emptyNote.markdownContent.hasPrefix("\n"),             "empty note: no leading newline")
+        verify(emptyNote.markdownContent.contains("First summary."),   "empty note: summary present")
+
+        // MARK: NoteRecord — wikilink resolution
+
+        print("\nNoteRecord (wikilink resolution)")
+
+        var noteC = NoteRecord(
+            id: "nc",
+            title: "Project Overview",
+            markdownContent: "See [[Architecture]] and [[API Design]] for details."
+        )
+        let wikilinkParser = WikilinkParser()
+        let knownNotes: [(id: String, title: String)] = [
+            (id: "arch", title: "Architecture"),
+            (id: "api",  title: "API Design"),
+            (id: "misc", title: "Miscellaneous"),
+        ]
+        noteC.updateLinkedNoteIds(using: wikilinkParser, allNotes: knownNotes)
+        verify(noteC.linkedNoteIds.count == 2,              "updateLinkedNoteIds: 2 resolved")
+        verify(noteC.linkedNoteIds.contains("arch"),        "Architecture → arch")
+        verify(noteC.linkedNoteIds.contains("api"),         "API Design → api")
+        verify(!noteC.linkedNoteIds.contains("misc"),       "Miscellaneous not linked")
+
+        // Unresolved wikilinks produce empty linkedNoteIds
+        var noteD = NoteRecord(title: "D", markdownContent: "[[UnknownNote]]")
+        noteD.updateLinkedNoteIds(using: wikilinkParser, allNotes: knownNotes)
+        verify(noteD.linkedNoteIds.isEmpty, "unresolved wikilink: linkedNoteIds empty")
+
+        // MARK: NoteService
+
+        print("\nNoteService")
+
+        do {
+            // CRUD
+            let noteSvcAI = MockAIProvider()
+            await noteSvcAI.set(summariseResult: "Key points from the email.")
+            let noteMgr = AIPermissionManager()
+            await noteMgr.set(scope: .always, providerId: "mock-ai", feature: .summarise)
+            let noteGate = AIGate(permissionManager: noteMgr)
+            let noteSvc = NoteService(aiProvider: noteSvcAI, gate: noteGate, providerId: "mock-ai")
+
+            let n1 = NoteRecord(id: "svc-n1", title: "Service Note", markdownContent: "Initial.")
+            await noteSvc.add(note: n1)
+            let retrieved = await noteSvc.note(id: "svc-n1")
+            verify(retrieved?.title == "Service Note", "NoteService: add + note(id:)")
+
+            await noteSvc.remove(noteId: "svc-n1")
+            let gone = await noteSvc.note(id: "svc-n1")
+            verify(gone == nil, "NoteService: remove clears note")
+
+            // summariseAndAppend — appends, pushes revision
+            let n2 = NoteRecord(id: "svc-n2", title: "Summarise Test", markdownContent: "Original.")
+            await noteSvc.add(note: n2)
+            let updated = try await noteSvc.summariseAndAppend(
+                itemContent: "Long email to summarise.",
+                to: "svc-n2"
+            )
+            verify(updated != nil,                                            "summariseAndAppend: note returned")
+            verify(updated?.markdownContent.contains("Original.") == true,    "summariseAndAppend: original preserved")
+            verify(updated?.markdownContent.contains("Key points") == true,   "summariseAndAppend: summary appended")
+            verify(updated?.revisionHistory.count == 1,                       "summariseAndAppend: 1 revision pushed")
+            verify(updated?.revisionHistory[0].content == "Original.",        "summariseAndAppend: revision captures pre-edit")
+
+            // summariseAndAppend — unknown note → nil
+            let unknownResult = try await noteSvc.summariseAndAppend(
+                itemContent: "email", to: "no-such-note"
+            )
+            verify(unknownResult == nil, "summariseAndAppend: nil for unknown note")
+
+            // summariseAndAppend — .never permission → throws
+            let blockedMgr = AIPermissionManager()
+            await blockedMgr.set(scope: .never, providerId: "mock-ai", feature: .summarise)
+            let blockedGate = AIGate(permissionManager: blockedMgr)
+            let blockedSvc = NoteService(
+                aiProvider: noteSvcAI, gate: blockedGate, providerId: "mock-ai"
+            )
+            let n3 = NoteRecord(id: "svc-n3", title: "Blocked", markdownContent: "Body.")
+            await blockedSvc.add(note: n3)
+            var notePermBlocked = false
+            do {
+                _ = try await blockedSvc.summariseAndAppend(itemContent: "x", to: "svc-n3")
+            } catch AIProviderError.permissionDenied {
+                notePermBlocked = true
+            }
+            verify(notePermBlocked, "NoteService: .never permission blocks summariseAndAppend")
+
+            // resolveWikilinks
+            let nA = NoteRecord(id: "rw-a", title: "Note A",
+                                markdownContent: "See [[Note B]] and [[Note C]].")
+            let nB = NoteRecord(id: "rw-b", title: "Note B", markdownContent: "B.")
+            let nC = NoteRecord(id: "rw-c", title: "Note C", markdownContent: "C.")
+            await noteSvc.add(note: nA)
+            await noteSvc.add(note: nB)
+            await noteSvc.add(note: nC)
+            let resolved = await noteSvc.resolveWikilinks(in: "rw-a")
+            verify(resolved.count == 2,          "resolveWikilinks: 2 links resolved")
+            verify(resolved.contains("rw-b"),    "resolveWikilinks: Note B → rw-b")
+            verify(resolved.contains("rw-c"),    "resolveWikilinks: Note C → rw-c")
+
+            let storedA = await noteSvc.note(id: "rw-a")
+            verify(storedA?.linkedNoteIds.contains("rw-b") == true,
+                   "resolveWikilinks: stored note updated")
+
+        } catch {
+            verify(false, "NoteService: unexpected throw — \(error)")
+        }
+
         // MARK: Summary
 
         print("\n─────────────────────────────────────────")
         if failed == 0 {
-            print("  ✅  All \(passed) checks passed — Phase 10 green baseline confirmed.")
+            print("  ✅  All \(passed) checks passed — Phase 11 green baseline confirmed.")
         } else {
             print("  ❌  \(failed) check(s) FAILED out of \(passed + failed).")
         }
