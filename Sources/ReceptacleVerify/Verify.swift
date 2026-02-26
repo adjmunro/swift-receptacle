@@ -684,11 +684,144 @@ func verify(_ condition: Bool, _ label: String) {
             verify(false, "AIGate: unexpected throw — \(error)")
         }
 
+        // MARK: DraftStateStack
+
+        print("\nDraftStateStack")
+
+        // Empty stack
+        var stack = DraftStateStack()
+        verify(stack.isEmpty,          "empty stack: isEmpty == true")
+        verify(stack.count == 0,       "empty stack: count == 0")
+        verify(stack.current == nil,   "empty stack: current == nil")
+        verify(stack.undo() == nil,    "undo on empty: returns nil")
+
+        // Push single state
+        stack.push(text: "First draft", description: "Transcribed")
+        verify(stack.count == 1,                          "push 1: count == 1")
+        verify(stack.current?.text == "First draft",      "push 1: current text")
+        verify(stack.current?.changeDescription == "Transcribed", "push 1: description")
+
+        // Push second state
+        stack.push(text: "Second draft", description: "AI reframed")
+        verify(stack.count == 2,                         "push 2: count == 2")
+        verify(stack.current?.text == "Second draft",    "push 2: current is latest")
+
+        // Undo
+        stack.undo()
+        verify(stack.current?.text == "First draft",     "undo: restores previous state")
+        verify(stack.count == 1,                          "undo: count decremented")
+
+        // Undo at min — stays at first
+        stack.undo()
+        verify(stack.current?.text == "First draft",     "undo at min: first state retained")
+        verify(stack.count == 1,                          "undo at min: count stays 1")
+
+        // Jump
+        var stack2 = DraftStateStack()
+        stack2.push(text: "v1")
+        stack2.push(text: "v2")
+        stack2.push(text: "v3")
+        stack2.push(text: "v4")
+        stack2.jump(to: 1)
+        verify(stack2.count == 2,                        "jump(to:1): count == 2")
+        verify(stack2.current?.text == "v2",             "jump(to:1): current is v2")
+
+        // Jump out of bounds — ignored
+        stack2.jump(to: 99)
+        verify(stack2.count == 2,                        "jump(to:99): out-of-bounds ignored")
+        stack2.jump(to: -1)
+        verify(stack2.count == 2,                        "jump(to:-1): negative ignored")
+
+        // Clear
+        stack2.clear()
+        verify(stack2.isEmpty,                            "clear: isEmpty == true")
+
+        // Push via DraftState directly
+        var stack3 = DraftStateStack()
+        stack3.push(DraftState(text: "Typed draft", changeDescription: "Manual edit"))
+        verify(stack3.current?.text == "Typed draft",    "push(DraftState): text stored")
+
+        // MARK: VoiceReplyPipeline
+
+        print("\nVoiceReplyPipeline")
+
+        do {
+            // reframe produces DraftState with "AI reframed" description
+            let pipeAI = MockAIProvider()
+            await pipeAI.set(reframeResult: "Formal version.")
+            let pipeMgr = AIPermissionManager()
+            await pipeMgr.set(scope: .always, providerId: "mock-ai", feature: .reframeTone)
+            let pipeGate = AIGate(permissionManager: pipeMgr)
+            let pipeline = VoiceReplyPipeline(
+                aiProvider: pipeAI,
+                gate: pipeGate,
+                providerId: "mock-ai"
+            )
+
+            let reframed = try await pipeline.reframe(
+                transcript: "hey thanks",
+                tone: .formal
+            )
+            verify(reframed.text == "Formal version.",    "reframe: text from AI result")
+            verify(reframed.changeDescription == "AI reframed",
+                   "reframe: changeDescription is 'AI reframed'")
+
+            let reframedCount = await pipeAI.reframeCalled
+            verify(reframedCount == 1, "reframe: reframeCalled == 1")
+
+            // applyInstruction produces DraftState with description capturing instruction
+            await pipeAI.set(reframeResult: "Concise version.")
+            let instructed = try await pipeline.applyInstruction(
+                "make it concise",
+                to: "Thank you very much for reaching out to me."
+            )
+            verify(instructed.text == "Concise version.",
+                   "applyInstruction: text from AI result")
+            verify(instructed.changeDescription == "Instruction: make it concise",
+                   "applyInstruction: description captures instruction text")
+
+            let instructedCount = await pipeAI.reframeCalled
+            verify(instructedCount == 2, "applyInstruction: reframeCalled increments")
+
+            // permission .never → permissionDenied
+            let blockedMgr = AIPermissionManager()
+            await blockedMgr.set(scope: .never, providerId: "mock-ai", feature: .reframeTone)
+            let blockedGate = AIGate(permissionManager: blockedMgr)
+            let blockedPipeline = VoiceReplyPipeline(
+                aiProvider: pipeAI,
+                gate: blockedGate,
+                providerId: "mock-ai"
+            )
+            var pipelineBlocked = false
+            do {
+                _ = try await blockedPipeline.reframe(transcript: "hi", tone: .formal)
+            } catch AIProviderError.permissionDenied {
+                pipelineBlocked = true
+            }
+            verify(pipelineBlocked, "pipeline: .never permission blocks reframe")
+
+            // Integration: pipeline → DraftStateStack
+            var intStack = DraftStateStack()
+            intStack.push(text: "hey ok", description: "Transcribed")
+            let intReframed = try await pipeline.reframe(
+                transcript: intStack.current!.text,
+                tone: .casualClean
+            )
+            intStack.push(intReframed)
+            verify(intStack.count == 2,                        "integration: stack has 2 states")
+            verify(intStack.current?.text == "Concise version.", "integration: current is reframed")
+            intStack.undo()
+            verify(intStack.current?.text == "hey ok",         "integration: undo restores transcript")
+
+        } catch {
+            verify(false, "VoiceReplyPipeline: unexpected throw — \(error)")
+        }
+
         // MARK: Summary
 
         print("\n─────────────────────────────────────────")
         if failed == 0 {
-            print("  ✅  All \(passed) checks passed — Phase 8 green baseline confirmed.")
+            print("  ✅  All \(passed) checks passed — Phase 9 green baseline confirmed.")
         } else {
             print("  ❌  \(failed) check(s) FAILED out of \(passed + failed).")
         }
