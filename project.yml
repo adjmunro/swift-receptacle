@@ -203,9 +203,12 @@ targets:
     dependencies:
       - package: Receptacle
         product: Receptacle
+      - package: FeedKit
+        product: FeedKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.user.receptacle.tests
+        GENERATE_INFOPLIST_FILE: YES
     scheme:
       testPlans: []
 
@@ -219,4 +222,5 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.user.receptacle.uitests
+        GENERATE_INFOPLIST_FILE: YES
         TEST_TARGET_NAME: Receptacle
