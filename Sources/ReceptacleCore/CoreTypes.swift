@@ -62,6 +62,19 @@ public enum IMAPProviderType: String, Codable, CaseIterable, Sendable {
         }
     }
 
+    /// Canonical SMTP hostname for sending email via this provider.
+    public var defaultSMTPHost: String {
+        switch self {
+        case .gmail:   return "smtp.gmail.com"
+        case .iCloud:  return "smtp.mail.me.com"
+        case .outlook: return "smtp.office365.com"
+        case .custom:  return ""
+        }
+    }
+
+    /// Standard SMTP submission port (587 = STARTTLS, 465 = SMTPS).
+    public var defaultSMTPPort: Int { 587 }
+
     public var displayName: String {
         switch self {
         case .gmail:   return "Gmail"

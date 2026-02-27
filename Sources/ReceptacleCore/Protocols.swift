@@ -16,12 +16,14 @@ public protocol Item: Identifiable, Sendable {
 
 public struct Reply: Sendable {
     public var itemId: String
+    public var subject: String
     public var body: String
     public var toAddress: String
     public var ccAddresses: [String]
 
-    public init(itemId: String, body: String, toAddress: String, ccAddresses: [String] = []) {
+    public init(itemId: String, subject: String = "", body: String, toAddress: String, ccAddresses: [String] = []) {
         self.itemId = itemId
+        self.subject = subject
         self.body = body
         self.toAddress = toAddress
         self.ccAddresses = ccAddresses
@@ -117,6 +119,7 @@ public enum AIProviderError: Error, Sendable {
     case networkError(reason: String)
     case modelUnavailable(modelId: String)
     case responseInvalid
+    case decodingFailed
 }
 
 public enum CalendarError: Error, Sendable {

@@ -1,4 +1,5 @@
 import Foundation
+import OpenAI
 import Receptacle  // AIProvider, AIProviderError, ReplyTone, CalendarEventDraft
 
 // MARK: - OpenAIProvider
@@ -6,58 +7,6 @@ import Receptacle  // AIProvider, AIProviderError, ReplyTone, CalendarEventDraft
 /// Cloud AI backed by the OpenAI API (MacPaw/OpenAI client).
 ///
 /// Opt-in only — API key stored in Keychain. All calls gated by `AIGate`.
-///
-/// ## MacPaw/OpenAI integration (requires Xcode + package linked):
-///
-/// ### Summarise:
-/// ```swift
-/// let client = OpenAI(apiToken: apiKey)
-/// let query = ChatQuery(
-///     messages: [
-///         .init(role: .system, content:
-///             "You are an expert email summariser. Summarise in 2-3 concise sentences."),
-///         .init(role: .user, content: text)
-///     ],
-///     model: .gpt4_o_mini    // cost-effective default; upgrade to .gpt4_o for quality
-/// )
-/// let result = try await client.chats(query: query)
-/// return result.choices.first?.message.content?.string ?? ""
-/// ```
-///
-/// ### Reframe tone:
-/// ```swift
-/// let toneInstruction: String
-/// switch tone {
-/// case .formal:       toneInstruction = "formal and professional"
-/// case .casualClean:  toneInstruction = "casual but polished"
-/// case .friendly:     toneInstruction = "warm and friendly"
-/// case .custom(let p): toneInstruction = p
-/// }
-/// let query = ChatQuery(
-///     messages: [
-///         .init(role: .system, content:
-///             "Rewrite the following email reply in a \(toneInstruction) tone. "
-///             + "Preserve the meaning and key points."),
-///         .init(role: .user, content: text)
-///     ],
-///     model: .gpt4_o_mini
-/// )
-/// ```
-///
-/// ### Tag suggestion:
-/// ```swift
-/// let query = ChatQuery(
-///     messages: [
-///         .init(role: .system, content:
-///             "Suggest 3-5 relevant single-word or short-phrase tags for this content. "
-///             + "Return only a comma-separated list, nothing else."),
-///         .init(role: .user, content: text)
-///     ],
-///     model: .gpt4_o_mini
-/// )
-/// let raw = result.choices.first?.message.content?.string ?? ""
-/// return raw.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
-/// ```
 public actor OpenAIProvider: AIProvider {
 
     public let providerId   = "openai"
@@ -75,52 +24,67 @@ public actor OpenAIProvider: AIProvider {
     // MARK: - AIProvider
 
     public func summarise(text: String) async throws -> String {
-        // Uncomment when MacPaw/OpenAI is linked in Xcode target:
-        //
-        // let client = OpenAI(apiToken: apiKey)
-        // let query = ChatQuery(
-        //     messages: [
-        //         .init(role: .system, content:
-        //             "Summarise the following email in 2-3 sentences. Be concise and factual."),
-        //         .init(role: .user, content: text)
-        //     ],
-        //     model: .init(model)
-        // )
-        // let result = try await client.chats(query: query)
-        // return result.choices.first?.message.content?.string ?? ""
-        throw AIProviderError.notConfigured
+        let client = OpenAI(apiToken: apiKey)
+        let query = ChatQuery(
+            messages: [
+                .system(.init(content: .textContent(
+                    "You are an expert content summariser. Summarise in 2-3 concise sentences."))),
+                .user(.init(content: .string(text)))
+            ],
+            model: model
+        )
+        let result = try await client.chats(query: query)
+        return result.choices.first?.message.content ?? ""
     }
 
     public func reframe(text: String, tone: ReplyTone) async throws -> String {
-        // Uncomment when MacPaw/OpenAI is linked:
-        //
-        // let toneInstruction = toneDescription(tone)
-        // let client = OpenAI(apiToken: apiKey)
-        // let query = ChatQuery(
-        //     messages: [
-        //         .init(role: .system, content:
-        //             "Rewrite this email reply in a \(toneInstruction) tone. "
-        //             + "Preserve meaning and key points. Return only the rewritten text."),
-        //         .init(role: .user, content: text)
-        //     ],
-        //     model: .init(model)
-        // )
-        // let result = try await client.chats(query: query)
-        // return result.choices.first?.message.content?.string ?? ""
-        throw AIProviderError.notConfigured
+        let client = OpenAI(apiToken: apiKey)
+        let query = ChatQuery(
+            messages: [
+                .system(.init(content: .textContent(
+                    "Rewrite this email reply in a \(toneDescription(tone)) tone. "
+                    + "Preserve meaning and key points. Return only the rewritten text."))),
+                .user(.init(content: .string(text)))
+            ],
+            model: model
+        )
+        let result = try await client.chats(query: query)
+        return result.choices.first?.message.content ?? ""
     }
 
     public func parseEvent(from text: String) async throws -> CalendarEventDraft {
-        // Uncomment when MacPaw/OpenAI is linked (Phase 12):
-        //
-        // Parse JSON response from structured output prompt:
-        // { "title": "...", "start": "ISO8601", "end": "ISO8601", "location": "...", "attendees": [] }
-        throw AIProviderError.notConfigured
+        let client = OpenAI(apiToken: apiKey)
+        let query = ChatQuery(
+            messages: [
+                .system(.init(content: .textContent(
+                    """
+                    Extract event details from the text and return valid JSON only, no commentary.
+                    Format: {"title":"...","start":"ISO8601","end":"ISO8601","location":"...","attendees":[],"allDay":false}
+                    Omit unknown fields or use null.
+                    """))),
+                .user(.init(content: .string(text)))
+            ],
+            model: model
+        )
+        let result = try await client.chats(query: query)
+        let jsonString = result.choices.first?.message.content ?? ""
+        return try decodeEventDraft(from: jsonString)
     }
 
     public func suggestTags(for text: String) async throws -> [String] {
-        // Uncomment when MacPaw/OpenAI is linked (Phase 10):
-        throw AIProviderError.notConfigured
+        let client = OpenAI(apiToken: apiKey)
+        let query = ChatQuery(
+            messages: [
+                .system(.init(content: .textContent(
+                    "Suggest 3-5 relevant single-word or short-phrase tags for this content. "
+                    + "Return only a comma-separated list, nothing else."))),
+                .user(.init(content: .string(text)))
+            ],
+            model: model
+        )
+        let result = try await client.chats(query: query)
+        let raw = result.choices.first?.message.content ?? ""
+        return raw.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
     }
 
     // MARK: - Helpers
@@ -136,5 +100,38 @@ public actor OpenAIProvider: AIProvider {
         case .friendly:         return "warm and friendly"
         case .custom(let p):    return p
         }
+    }
+
+    private func decodeEventDraft(from jsonString: String) throws -> CalendarEventDraft {
+        var cleaned = jsonString
+        if let start = cleaned.range(of: "{"), let end = cleaned.range(of: "}", options: .backwards) {
+            cleaned = String(cleaned[start.lowerBound...end.upperBound])
+        }
+        guard let data = cleaned.data(using: .utf8) else {
+            throw AIProviderError.decodingFailed
+        }
+
+        struct ParsedEvent: Decodable {
+            var title: String?
+            var start: String?
+            var end: String?
+            var location: String?
+            var attendees: [String]?
+            var allDay: Bool?
+        }
+
+        let parsed = try JSONDecoder().decode(ParsedEvent.self, from: data)
+        let iso = ISO8601DateFormatter()
+        let startDate = parsed.start.flatMap { iso.date(from: $0) } ?? Date().addingTimeInterval(3600)
+        let endDate = parsed.end.flatMap { iso.date(from: $0) } ?? startDate.addingTimeInterval(3600)
+
+        return CalendarEventDraft(
+            title: parsed.title ?? "Untitled Event",
+            startDate: startDate,
+            endDate: endDate,
+            location: parsed.location,
+            attendees: parsed.attendees ?? [],
+            isAllDay: parsed.allDay ?? false
+        )
     }
 }

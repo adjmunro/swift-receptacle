@@ -4,9 +4,9 @@ import SwiftUI
 
 /// Shown when enabling a cloud AI provider for the first time.
 ///
-/// Fetches the provider's current privacy policy via URLSession, summarises it
-/// on-device using the local `WhisperProvider` (or falls back to a hardcoded
-/// summary), and presents the result before the user confirms activation.
+/// Fetches the provider's current privacy policy via URLSession, strips HTML,
+/// and attempts on-device summarisation via `WhisperProvider`. Falls back to
+/// a hardcoded summary when the on-device model is unavailable.
 ///
 /// The summary is generated on-device — no data is sent to the cloud provider
 /// until the user explicitly confirms.
@@ -84,30 +84,28 @@ struct PrivacyPolicySummaryView: View {
         }
 
         do {
-            // Phase 8: Fetch privacy policy text, summarise on-device.
-            //
-            // 1. Fetch policy HTML via URLSession:
-            // let (data, _) = try await URLSession.shared.data(from: url)
-            // let html = String(data: data, encoding: .utf8) ?? ""
-            //
-            // 2. Strip tags to extract readable text:
-            // let plain = html
-            //     .replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
-            //     .components(separatedBy: .whitespacesAndNewlines)
-            //     .filter { !$0.isEmpty }
-            //     .joined(separator: " ")
-            // let excerpt = String(plain.prefix(4096))  // cap input to local model
-            //
-            // 3. Summarise via local AI provider (WhisperProvider / future CoreML model):
-            // let localProvider = WhisperProvider()
-            // let summary = try await localProvider.summarise(text: excerpt)
-            // summaryState = .loaded(summary)
-            //
-            // For now (while local summariser is unavailable), use the hardcoded fallback:
+            // 1. Fetch policy HTML via URLSession
+            let (data, _) = try await URLSession.shared.data(from: url)
+            let html = String(data: data, encoding: .utf8) ?? ""
 
-            _ = url  // silence unused warning until URLSession is wired
-            try? await Task.sleep(for: .milliseconds(600))  // simulate network fetch
-            summaryState = .loaded(PrivacyPolicyRegistry.fallbackSummary(for: providerId))
+            // 2. Strip HTML tags to extract readable plain text
+            let plain = html
+                .replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
+                .components(separatedBy: .whitespacesAndNewlines)
+                .filter { !$0.isEmpty }
+                .joined(separator: " ")
+            let excerpt = String(plain.prefix(4096))
+
+            // 3. Attempt on-device summarisation via WhisperProvider.
+            //    WhisperProvider.summarise currently throws .modelUnavailable —
+            //    the catch block falls back to the hardcoded registry summary.
+            do {
+                let localProvider = WhisperProvider()
+                let summary = try await localProvider.summarise(text: excerpt)
+                summaryState = .loaded(summary)
+            } catch {
+                summaryState = .loaded(PrivacyPolicyRegistry.fallbackSummary(for: providerId))
+            }
 
         } catch {
             summaryState = .failed("Could not fetch or summarise the policy: \(error.localizedDescription)")

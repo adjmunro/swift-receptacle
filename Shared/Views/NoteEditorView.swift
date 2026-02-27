@@ -1,4 +1,5 @@
 import SwiftUI
+import Textual
 import Receptacle  // WikilinkParser, WikilinkParseResult
 
 // MARK: - NoteEditorView
@@ -9,18 +10,10 @@ import Receptacle  // WikilinkParser, WikilinkParseResult
 /// - **macOS**: `HSplitView` — left raw `TextEditor` (monospaced), right rendered preview.
 /// - **iOS**: `TabView` with editor and preview tabs (HSplitView is macOS-only).
 ///
-/// ## Textual integration (Phase 11, requires Xcode + package linked):
-/// ```swift
-/// import Textual
-///
-/// // Replace the ScrollView preview with:
-/// MarkdownText(note.markdownContent)
-///     .padding()
-///
-/// // MarkdownText renders headers, bold, italic, code blocks, lists.
-/// // For [[wikilink]] rendering, pre-process the content to convert
-/// // wikilinks to Markdown links before passing to MarkdownText.
-/// ```
+/// ## Textual integration
+/// The preview pane renders Markdown via `StructuredText(markdown:)` from the Textual package.
+/// `[[wikilinks]]` are pre-processed to Markdown links (`[Title](note://Title)`) before
+/// passing to Textual, so they appear as tappable links in the preview.
 ///
 /// ## Wikilink navigation
 /// `[[NoteTitle]]` links are extracted by `WikilinkParser`.
@@ -83,14 +76,19 @@ struct NoteEditorView: View {
     private var previewPane: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-
-                // Phase 11 (Textual linked in Xcode):
-                // MarkdownText(preprocessed(note.markdownContent))
-                //     .padding()
-
-                // Placeholder: plain text + wikilink chip list
-                Text(note.markdownContent)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                // StructuredText renders Markdown including headers, bold, italic,
+                // code blocks, lists, and tables. Wikilinks are pre-processed to
+                // Markdown links so they render as clickable text.
+                StructuredText(markdown: preprocessed(note.markdownContent))
+                    .environment(\.openURL, OpenURLAction { url in
+                        // Handle note:// scheme — navigate to the linked note.
+                        if url.scheme == "note",
+                           let target = url.host.map({ $0.removingPercentEncoding ?? $0 }) {
+                            onNavigateToNote?(target)
+                            return .handled
+                        }
+                        return .systemAction
+                    })
                     .padding()
 
                 if !wikilinkRanges.isEmpty {
@@ -114,10 +112,6 @@ struct NoteEditorView: View {
                 HStack(spacing: 8) {
                     ForEach(wikilinkRanges, id: \.target) { link in
                         Button {
-                            // In a full implementation, resolve link.target to a note ID
-                            // via NoteService.resolveWikilinks(), then call onNavigateToNote.
-                            //
-                            // Placeholder: pass target title as the "ID" for now.
                             onNavigateToNote?(link.target)
                         } label: {
                             Label(link.target, systemImage: "arrow.right.circle")
@@ -136,20 +130,20 @@ struct NoteEditorView: View {
         .padding(.bottom, 8)
     }
 
-    // MARK: - Wikilink pre-processing (Phase 11 helper)
+    // MARK: - Wikilink pre-processing
 
     /// Convert `[[Title]]` to Markdown `[Title](note://Title)` for Textual rendering.
     ///
-    /// ```swift
-    /// // Uncomment when Textual is linked:
-    /// private func preprocessed(_ markdown: String) -> String {
-    ///     var result = markdown
-    ///     for link in parser.extractLinks(from: markdown) {
-    ///         let raw = "[[\(link.target)]]"
-    ///         let mdLink = "[\(link.target)](note://\(link.target.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? link.target))"
-    ///         result = result.replacingOccurrences(of: raw, with: mdLink)
-    ///     }
-    ///     return result
-    /// }
-    /// ```
+    /// The `note://` scheme is intercepted by the `openURL` environment action above,
+    /// which calls `onNavigateToNote` to handle in-app navigation.
+    private func preprocessed(_ markdown: String) -> String {
+        var result = markdown
+        for link in parser.extractLinks(from: markdown) {
+            let raw = "[[\(link.target)]]"
+            let encoded = link.target.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? link.target
+            let mdLink = "[\(link.target)](note://\(encoded))"
+            result = result.replacingOccurrences(of: raw, with: mdLink)
+        }
+        return result
+    }
 }

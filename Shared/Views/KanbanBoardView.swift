@@ -7,15 +7,19 @@ import Receptacle  // KanbanBoard, TodoItemRecord
 ///
 /// ## Drag-to-reorder
 /// Each `KanbanCardView` is `.draggable` — dragging a card and dropping it onto
-/// a `KanbanColumnView`'s drop zone moves the item via `KanbanBoard.moveItem(id:toColumn:atOrdinal:)`.
-/// SwiftData is updated separately by the parent (the board actor handles in-memory state;
-/// SwiftData sync is wired in Xcode when the full app target is linked).
+/// a `KanbanColumnView`'s drop zone moves the item via `KanbanBoard.moveItem(id:toColumn:atOrdinal:)`
+/// and syncs the new position to SwiftData.
 struct KanbanBoardView: View {
     let project: Project
     let board: KanbanBoard
 
+    @Environment(\.modelContext) private var modelContext
+
     @Query private var allColumns: [KanbanColumn]
     @Query private var allTodos: [TodoItem]
+
+    @State private var showAddColumn = false
+    @State private var newColumnTitle = ""
 
     var columns: [KanbanColumn] {
         allColumns
@@ -36,7 +40,8 @@ struct KanbanBoardView: View {
                 }
                 // Add column button
                 Button {
-                    // Phase 12: add column via KanbanBoard + SwiftData
+                    newColumnTitle = ""
+                    showAddColumn = true
                 } label: {
                     Label("Add Column", systemImage: "plus")
                         .frame(width: 260, height: 60)
@@ -48,6 +53,48 @@ struct KanbanBoardView: View {
             .padding()
         }
         .navigationTitle(project.name)
+        .sheet(isPresented: $showAddColumn) {
+            addColumnSheet
+        }
+    }
+
+    private var addColumnSheet: some View {
+        NavigationStack {
+            Form {
+                Section("Column Name") {
+                    TextField("e.g. To Do, In Progress, Done", text: $newColumnTitle)
+                }
+            }
+            .navigationTitle("Add Column")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { showAddColumn = false }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add") {
+                        guard !newColumnTitle.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+                        let ordinal = columns.count
+                        let newCol = KanbanColumn(
+                            title: newColumnTitle.trimmingCharacters(in: .whitespaces),
+                            ordinal: ordinal,
+                            projectId: project.id.uuidString
+                        )
+                        modelContext.insert(newCol)
+                        Task {
+                            await board.add(column: KanbanColumnRecord(
+                                id: newCol.id.uuidString,
+                                title: newCol.title,
+                                ordinal: ordinal,
+                                projectId: project.id.uuidString
+                            ))
+                        }
+                        showAddColumn = false
+                    }
+                    .disabled(newColumnTitle.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+        }
+        .presentationDetents([.height(200)])
     }
 
     private func todos(for column: KanbanColumn) -> [TodoItem] {
@@ -61,6 +108,11 @@ struct KanbanColumnView: View {
     let column: KanbanColumn
     let todos: [TodoItem]
     let board: KanbanBoard
+
+    @Environment(\.modelContext) private var modelContext
+
+    @State private var showAddCard = false
+    @State private var newCardTitle = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -84,20 +136,25 @@ struct KanbanColumnView: View {
                 .frame(height: 40)
                 .dropDestination(for: String.self) { itemIds, _ in
                     guard let itemId = itemIds.first else { return false }
+                    let colId = column.id.uuidString
                     let ordinal = todos.count
-                    Task {
-                        await board.moveItem(
-                            id: itemId,
-                            toColumn: column.id.uuidString,
-                            atOrdinal: ordinal
-                        )
-                        // Phase 12: sync moved item back to SwiftData in Xcode target
+                    Task { @MainActor in
+                        await board.moveItem(id: itemId, toColumn: colId, atOrdinal: ordinal)
+                        // Sync moved item position back to SwiftData
+                        if let uuid = UUID(uuidString: itemId),
+                           let todo = try? modelContext.fetch(
+                               FetchDescriptor<TodoItem>(predicate: #Predicate { $0.id == uuid })
+                           ).first {
+                            todo.columnId = colId
+                            todo.ordinal = ordinal
+                        }
                     }
                     return true
                 }
 
             Button {
-                // Phase 12: add card via KanbanBoard + SwiftData
+                newCardTitle = ""
+                showAddCard = true
             } label: {
                 Label("Add Card", systemImage: "plus")
                     .font(.caption)
@@ -109,6 +166,51 @@ struct KanbanColumnView: View {
         .padding(8)
         .background(Color.secondary.opacity(0.07))
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        .sheet(isPresented: $showAddCard) {
+            addCardSheet
+        }
+    }
+
+    private var addCardSheet: some View {
+        NavigationStack {
+            Form {
+                Section("Card Title") {
+                    TextField("e.g. Fix the login bug", text: $newCardTitle)
+                }
+            }
+            .navigationTitle("Add Card")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { showAddCard = false }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add") {
+                        let title = newCardTitle.trimmingCharacters(in: .whitespaces)
+                        guard !title.isEmpty else { return }
+                        let ordinal = todos.count
+                        let newTodo = TodoItem(
+                            title: title,
+                            projectId: column.projectId,
+                            columnId: column.id.uuidString,
+                            ordinal: ordinal
+                        )
+                        modelContext.insert(newTodo)
+                        Task {
+                            await board.add(item: TodoItemRecord(
+                                id: newTodo.id.uuidString,
+                                title: title,
+                                projectId: column.projectId,
+                                columnId: column.id.uuidString,
+                                ordinal: ordinal
+                            ))
+                        }
+                        showAddCard = false
+                    }
+                    .disabled(newCardTitle.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+        }
+        .presentationDetents([.height(200)])
     }
 }
 

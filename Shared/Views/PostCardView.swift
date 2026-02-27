@@ -10,11 +10,16 @@ import Receptacle
 /// - Collapsed/expanded toggle (chevron)
 /// - Body: plain-text summary until Phase 7 (HTMLBodyView)
 /// - Quoted-text toggle placeholder (implemented in Phase 6)
-/// - Reply button (stub for Phase 9)
-/// - Deletion requires double-confirmation when importance > .normal
+/// - Reply button — opens VoiceReplyView via `onReply` callback
+/// - Archive/delete wired to SwiftData model via `modelContext`
 struct PostCardView: View {
     let item: PostCardItem
     let entity: Entity
+
+    /// Called when the user taps Reply — parent presents VoiceReplyView.
+    var onReply: (() -> Void)? = nil
+
+    @Environment(\.modelContext) private var modelContext
 
     @State private var isExpanded: Bool = true
     @State private var showQuoted: Bool = false
@@ -55,7 +60,7 @@ struct PostCardView: View {
             titleVisibility: .visible
         ) {
             Button("Delete", role: .destructive) {
-                // Phase 3: call source.delete(item)
+                performDelete()
             }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -159,10 +164,10 @@ struct PostCardView: View {
         HStack(spacing: 16) {
             Spacer()
 
-            // Reply (Phase 9)
+            // Reply — only for items with a reply-to address (email)
             if let replyTo = item.replyToAddress {
                 Button {
-                    // Phase 9: open VoiceReplyView / draft
+                    onReply?()
                 } label: {
                     Label("Reply", systemImage: "arrowshape.turn.up.left")
                         .font(.caption)
@@ -171,10 +176,10 @@ struct PostCardView: View {
                 .help("Reply to \(replyTo)")
             }
 
-            // Archive (not for protected entities)
+            // Archive — not for protected entities
             if entity.protectionLevel != .protected {
                 Button {
-                    // Phase 3: source.archive(item)
+                    performArchive()
                 } label: {
                     Label("Archive", systemImage: "archivebox")
                         .font(.caption)
@@ -183,13 +188,13 @@ struct PostCardView: View {
                 .tint(.orange)
             }
 
-            // Delete (gated by protection level + importance)
+            // Delete — gated by protection level + importance
             if entity.protectionLevel != .protected {
                 Button(role: .destructive) {
                     if item.importanceLevel > .normal {
                         showDeleteConfirm = true
                     } else {
-                        // Phase 3: source.delete(item)
+                        performDelete()
                     }
                 } label: {
                     Label("Delete", systemImage: "trash")
@@ -199,6 +204,40 @@ struct PostCardView: View {
             }
         }
         .padding(.top, 8)
+    }
+
+    // MARK: - Actions
+
+    /// Mark the item as archived in SwiftData.
+    /// EmailItem: sets isArchived = true.
+    /// FeedItem: sets isSaved = true (RSS "save" = archive equivalent).
+    private func performArchive() {
+        let itemId = item.id
+        let emailPred = #Predicate<EmailItem> { $0.id == itemId }
+        if let email = try? modelContext.fetch(FetchDescriptor(predicate: emailPred)).first {
+            email.isArchived = true
+            return
+        }
+        let feedPred = #Predicate<FeedItem> { $0.id == itemId }
+        if let feed = try? modelContext.fetch(FetchDescriptor(predicate: feedPred)).first {
+            feed.isSaved = true
+        }
+    }
+
+    /// Mark the item as deleted in SwiftData.
+    /// EmailItem: sets isDeleted = true (soft delete, filtered out of queries).
+    /// FeedItem: hard-deleted from the store (no isDeleted flag).
+    private func performDelete() {
+        let itemId = item.id
+        let emailPred = #Predicate<EmailItem> { $0.id == itemId }
+        if let email = try? modelContext.fetch(FetchDescriptor(predicate: emailPred)).first {
+            email.isDeleted = true
+            return
+        }
+        let feedPred = #Predicate<FeedItem> { $0.id == itemId }
+        if let feed = try? modelContext.fetch(FetchDescriptor(predicate: feedPred)).first {
+            modelContext.delete(feed)
+        }
     }
 
     // MARK: Appearance helpers

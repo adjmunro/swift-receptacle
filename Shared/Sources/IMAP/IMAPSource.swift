@@ -1,4 +1,5 @@
 import Foundation
+import SwiftMail
 import Receptacle  // IMAPProviderType, IMAPAuthMethod live in ReceptacleCore
 
 // MARK: - IMAP Account Configuration
@@ -55,16 +56,6 @@ public struct IMAPAccountConfig: Sendable, Codable {
 ///
 /// All four IMAP providers use this single adapter — authentication method
 /// is the only difference, handled at connection time via `credential()`.
-///
-/// ## SwiftMail API (wire in Xcode when Phase 4 is complete):
-/// ```swift
-/// let server = IMAPServer(hostname: config.host, port: UInt16(config.port))
-/// try await server.login(username: config.username, password: credential)
-/// let messages = try await server.messages(in: "INBOX", since: since)
-/// try await server.moveMessages(uids: [uid], from: "INBOX", to: archiveFolder)
-/// try await server.setFlags([.deleted], forUIDs: [uid], in: "INBOX")
-/// try await server.expunge(in: "INBOX")
-/// ```
 actor IMAPSource: MessageSource {
 
     let config: IMAPAccountConfig
@@ -106,99 +97,126 @@ actor IMAPSource: MessageSource {
         }
     }
 
+    // MARK: - Connection helpers
+
+    /// Creates and authenticates an IMAPServer connection.
+    private func connect() async throws -> IMAPServer {
+        let server = IMAPServer(host: config.host, port: config.port)
+        try await server.connect()
+        let cred = try await credential()
+        switch config.authMethod {
+        case .password:
+            try await server.login(username: config.username, password: cred)
+        case .oauth2:
+            try await server.authenticateXOAUTH2(email: config.username, accessToken: cred)
+        }
+        return server
+    }
+
     // MARK: - MessageSource
 
     func fetchItems(since: Date?) async throws -> [any Item] {
-        // Phase 3 — SwiftMail implementation sketch:
-        //
-        // let cred = try await credential()
-        // let server = IMAPServer(hostname: config.host, port: UInt16(config.port))
-        // try await server.login(username: config.username, password: cred)
-        //
-        // let folder = "INBOX"
-        // let messages = try await server.messages(in: folder, since: since)
-        //
-        // return try messages.map { msg -> EmailItem in
-        //     let entityId = entityResolver(msg.from.address) ?? "unknown"
-        //     return EmailItem(
-        //         id: "\(config.accountId):\(folder):\(msg.uid)",
-        //         entityId: entityId,
-        //         sourceId: config.accountId,
-        //         date: msg.date ?? Date(),
-        //         subject: msg.subject ?? "(No subject)",
-        //         fromAddress: msg.from.address,
-        //         fromName: msg.from.displayName,
-        //         toAddresses: msg.to.map(\.address),
-        //         ccAddresses: msg.cc.map(\.address),
-        //         replyToAddress: msg.replyTo?.address,
-        //         bodyHTML: msg.htmlBody,
-        //         bodyPlain: msg.plainBody
-        //     )
-        // }
-        return []
+        let server = try await connect()
+        defer { Task { try? await server.disconnect() } }
+
+        try await server.selectMailbox("INBOX")
+
+        // Build search criteria: since date if provided, else all messages.
+        let criteria: [SearchCriteria] = since.map { [.since($0)] } ?? [.all]
+        let uidSet: UIDSet = try await server.search(criteria: criteria)
+
+        guard !uidSet.isEmpty else { return [] }
+
+        var items: [any Item] = []
+        for try await msg in server.fetchMessages(using: uidSet) {
+            let fromAddr = msg.from ?? ""
+            let entityId = entityResolver(fromAddr) ?? "unknown"
+            let uid = msg.uid.map { String($0.value) } ?? String(msg.sequenceNumber.value)
+            let itemId = "\(config.accountId):INBOX:\(uid)"
+
+            let emailItem = EmailItem(
+                id: itemId,
+                entityId: entityId,
+                sourceId: config.accountId,
+                date: msg.date ?? msg.header.internalDate ?? Date(),
+                subject: msg.subject ?? "(No subject)",
+                fromAddress: fromAddr,
+                fromName: nil,
+                toAddresses: msg.to,
+                ccAddresses: msg.cc,
+                replyToAddress: msg.header.additionalFields?["Reply-To"],
+                bodyHTML: msg.htmlBody,
+                bodyPlain: msg.textBody
+            )
+            emailItem.isRead = msg.flags.contains(.seen)
+            items.append(emailItem)
+        }
+        return items
     }
 
     func send(_ reply: Reply) async throws {
-        // Phase 4 — SwiftMail SMTPServer sketch:
-        //
-        // let cred  = try await credential()
-        // let smtp  = SMTPServer(hostname: smtpHost, port: 587)
-        // try await smtp.login(username: config.username, password: cred)
-        //
-        // let message = MailMessage(
-        //     from: config.username,
-        //     to: [reply.toAddress],
-        //     cc: reply.ccAddresses,
-        //     subject: "Re: …",  // fetched from original item
-        //     body: reply.body,
-        //     inReplyTo: reply.itemId
-        // )
-        // try await smtp.send(message)
-        throw MessageSourceError.unsupportedOperation
+        let cred = try await credential()
+        let smtpHost = config.providerType.defaultSMTPHost
+        guard !smtpHost.isEmpty else { throw MessageSourceError.unsupportedOperation }
+
+        let smtp = SMTPServer(host: smtpHost, port: config.providerType.defaultSMTPPort)
+        try await smtp.connect()
+        switch config.authMethod {
+        case .password:
+            try await smtp.login(username: config.username, password: cred)
+        case .oauth2:
+            try await smtp.authenticateXOAUTH2(email: config.username, accessToken: cred)
+        }
+
+        let email = Email(
+            sender: EmailAddress(address: config.username),
+            recipients: [EmailAddress(address: reply.toAddress)],
+            ccRecipients: reply.ccAddresses.map { EmailAddress(address: $0) },
+            subject: reply.subject,
+            textBody: reply.body,
+            additionalHeaders: reply.itemId.isEmpty ? nil : ["In-Reply-To": reply.itemId]
+        )
+        try await smtp.sendEmail(email)
     }
 
     func archive(_ item: any Item) async throws {
-        // Phase 4:
-        // let cred   = try await credential()
-        // let server = IMAPServer(hostname: config.host, port: UInt16(config.port))
-        // try await server.login(username: config.username, password: cred)
-        // let uid    = uidFromItemId(item.id)
-        // try await server.moveMessages(uids: [uid], from: "INBOX",
-        //                               to: config.effectiveArchiveFolder)
-        throw MessageSourceError.unsupportedOperation
+        guard let uid = uidFromItemId(item.id) else {
+            throw MessageSourceError.unsupportedOperation
+        }
+        let server = try await connect()
+        defer { Task { try? await server.disconnect() } }
+        try await server.selectMailbox("INBOX")
+        try await server.move(message: UID(uid), to: config.effectiveArchiveFolder)
     }
 
     func delete(_ item: any Item) async throws {
-        // Phase 4:
-        // let cred   = try await credential()
-        // let server = IMAPServer(hostname: config.host, port: UInt16(config.port))
-        // try await server.login(username: config.username, password: cred)
-        // let uid    = uidFromItemId(item.id)
-        // try await server.setFlags([.deleted], forUIDs: [uid], in: "INBOX")
-        // try await server.expunge(in: "INBOX")
-        throw MessageSourceError.unsupportedOperation
+        guard let uid = uidFromItemId(item.id) else {
+            throw MessageSourceError.unsupportedOperation
+        }
+        let server = try await connect()
+        defer { Task { try? await server.disconnect() } }
+        try await server.selectMailbox("INBOX")
+        let set = UIDSet(UID(uid))
+        try await server.store(flags: [.deleted], on: set, operation: .add)
+        try await server.expunge()
     }
 
     func markRead(_ item: any Item, read: Bool) async throws {
-        // Phase 4:
-        // let cred   = try await credential()
-        // let server = IMAPServer(hostname: config.host, port: UInt16(config.port))
-        // try await server.login(username: config.username, password: cred)
-        // let uid    = uidFromItemId(item.id)
-        // let flag   = IMAPFlag.seen
-        // if read {
-        //     try await server.setFlags([flag], forUIDs: [uid], in: "INBOX")
-        // } else {
-        //     try await server.clearFlags([flag], forUIDs: [uid], in: "INBOX")
-        // }
-        throw MessageSourceError.unsupportedOperation
+        guard let uid = uidFromItemId(item.id) else {
+            throw MessageSourceError.unsupportedOperation
+        }
+        let server = try await connect()
+        defer { Task { try? await server.disconnect() } }
+        try await server.selectMailbox("INBOX")
+        let set = UIDSet(UID(uid))
+        try await server.store(flags: [.seen], on: set, operation: read ? .add : .remove)
     }
 
     // MARK: - Private helpers
 
     /// Extracts the IMAP UID from a composite item ID: "<accountId>:<folder>:<uid>"
-    private func uidFromItemId(_ itemId: String) -> UInt32 {
+    private func uidFromItemId(_ itemId: String) -> UInt32? {
         let parts = itemId.split(separator: ":")
-        return parts.last.flatMap { UInt32($0) } ?? 0
+        return parts.last.flatMap { UInt32($0) }
     }
 }

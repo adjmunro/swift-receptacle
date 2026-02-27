@@ -13,10 +13,42 @@ packages:
   # Local SPM package — provides ReceptacleCore types to all app targets.
   Receptacle:
     path: .
-  # Google Sign-In SDK — used by OAuthManager for Gmail OAuth2 (Phase 4).
+  # Google Sign-In SDK — used by OAuthManager for Gmail OAuth2.
   GoogleSignIn-iOS:
     url: https://github.com/google/GoogleSignIn-iOS
     from: "9.0.0"
+  # IMAP/SMTP — pure Swift, actor-based, Swift 6 native.
+  SwiftMail:
+    url: https://github.com/Cocoanetics/SwiftMail
+    branch: main
+  # RSS/Atom/JSON Feed parsing.
+  FeedKit:
+    url: https://github.com/nmdias/FeedKit
+    from: "9.0.0"
+  # OpenAI API client.
+  OpenAI:
+    url: https://github.com/MacPaw/OpenAI
+    from: "0.2.0"
+  # Anthropic/Claude API client.
+  SwiftAnthropic:
+    url: https://github.com/jamesrochabrun/SwiftAnthropic
+    from: "1.0.0"
+  # On-device speech transcription.
+  WhisperKit:
+    url: https://github.com/argmaxinc/WhisperKit
+    from: "0.9.0"
+  # Markdown rendering in SwiftUI.
+  textual:
+    url: https://github.com/gonzalezreal/textual
+    from: "0.3.0"
+  # Markdown AST parser (wikilink detection).
+  swift-markdown:
+    url: https://github.com/apple/swift-markdown
+    from: "0.4.0"
+  # Outlook OAuth2.
+  microsoft-authentication-library-for-objc:
+    url: https://github.com/AzureAD/microsoft-authentication-library-for-objc
+    from: "2.8.0"
 
 configs:
   Debug:   debug
@@ -63,6 +95,22 @@ targets:
         product: GoogleSignIn
       - package: GoogleSignIn-iOS
         product: GoogleSignInSwift
+      - package: SwiftMail
+        product: SwiftMail
+      - package: FeedKit
+        product: FeedKit
+      - package: OpenAI
+        product: OpenAI
+      - package: SwiftAnthropic
+        product: SwiftAnthropic
+      - package: WhisperKit
+        product: WhisperKit
+      - package: textual
+        product: Textual
+      - package: swift-markdown
+        product: Markdown
+      - package: microsoft-authentication-library-for-objc
+        product: MSAL
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.user.receptacle
@@ -107,6 +155,22 @@ targets:
         product: GoogleSignIn
       - package: GoogleSignIn-iOS
         product: GoogleSignInSwift
+      - package: SwiftMail
+        product: SwiftMail
+      - package: FeedKit
+        product: FeedKit
+      - package: OpenAI
+        product: OpenAI
+      - package: SwiftAnthropic
+        product: SwiftAnthropic
+      - package: WhisperKit
+        product: WhisperKit
+      - package: textual
+        product: Textual
+      - package: swift-markdown
+        product: Markdown
+      - package: microsoft-authentication-library-for-objc
+        product: MSAL
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.user.receptacle.ios

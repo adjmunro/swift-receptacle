@@ -1,4 +1,5 @@
 import SwiftUI
+import AVFoundation
 import Receptacle  // DraftState, DraftStateStack, VoiceReplyPipeline, AIProvider, ReplyTone
 
 // MARK: - VoiceReplyView
@@ -9,38 +10,6 @@ import Receptacle  // DraftState, DraftStateStack, VoiceReplyPipeline, AIProvide
 ///
 /// Draft state is managed by `DraftStateStack` from ReceptacleCore. Every AI operation
 /// pushes a new `DraftState`. Undo pops back. The revision strip shows full history.
-///
-/// ## AVAudioRecorder integration (Phase 9, requires AVFoundation linked):
-/// ```swift
-/// import AVFoundation
-///
-/// // Configure session
-/// let session = AVAudioSession.sharedInstance()
-/// try session.setCategory(.playAndRecord, mode: .default)
-/// try session.setActive(true)
-///
-/// // Start recording
-/// let url = FileManager.default.temporaryDirectory
-///     .appendingPathComponent(UUID().uuidString + ".m4a")
-/// let settings: [String: Any] = [
-///     AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
-///     AVSampleRateKey: 16000,   // WhisperKit expects 16 kHz
-///     AVNumberOfChannelsKey: 1,
-///     AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
-/// ]
-/// let recorder = try AVAudioRecorder(url: url, settings: settings)
-/// recorder.record()
-///
-/// // Stop + get URL
-/// recorder.stop()
-/// let audioURL = recorder.url
-/// ```
-///
-/// ## WhisperKit transcription (Phase 9):
-/// ```swift
-/// let whisper = WhisperProvider()
-/// let transcript = try await whisper.transcribe(audioURL: audioURL)
-/// ```
 struct VoiceReplyView: View {
 
     let item: any Item
@@ -54,8 +23,8 @@ struct VoiceReplyView: View {
     @State private var isPipelineRunning = false
     @State private var errorMessage: String? = nil
 
-    // Temporary: simulates AVAudioRecorder output URL
-    @State private var pendingAudioURL: URL? = nil
+    /// Holds the active AVAudioRecorder while recording is in progress.
+    @State private var recorder: AVAudioRecorder? = nil
 
     var currentText: String { draftStack.current?.text ?? "" }
 
@@ -153,46 +122,48 @@ struct VoiceReplyView: View {
     private func toggleRecording() async {
         if isRecording {
             isRecording = false
+            recorder?.stop()
             await processRecording()
         } else {
-            isRecording = true
-            // Phase 9: start AVAudioRecorder
-            //
-            // let session = AVAudioSession.sharedInstance()
-            // try session.setCategory(.playAndRecord, mode: .default)
-            // try session.setActive(true)
-            // let url = FileManager.default.temporaryDirectory
-            //     .appendingPathComponent(UUID().uuidString + ".m4a")
-            // let settings: [String: Any] = [
-            //     AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
-            //     AVSampleRateKey: 16000,
-            //     AVNumberOfChannelsKey: 1,
-            //     AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
-            // ]
-            // recorder = try AVAudioRecorder(url: url, settings: settings)
-            // recorder.record()
-            // pendingAudioURL = url
+            do {
+#if os(iOS)
+                let session = AVAudioSession.sharedInstance()
+                try session.setCategory(.playAndRecord, mode: .default)
+                try session.setActive(true)
+#endif
+                let url = FileManager.default.temporaryDirectory
+                    .appendingPathComponent(UUID().uuidString + ".m4a")
+                let settings: [String: Any] = [
+                    AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
+                    AVSampleRateKey: 16000,      // WhisperKit expects 16 kHz
+                    AVNumberOfChannelsKey: 1,
+                    AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
+                ]
+                let r = try AVAudioRecorder(url: url, settings: settings)
+                r.record()
+                recorder = r
+                isRecording = true
+            } catch {
+                errorMessage = error.localizedDescription
+            }
         }
     }
 
     private func processRecording() async {
+        guard let r = recorder else { return }
+        let audioURL = r.url
+        recorder = nil
+
         isPipelineRunning = true
         defer { isPipelineRunning = false }
 
         do {
-            // Phase 9: transcribe via WhisperProvider, then reframe via pipeline
-            //
-            // guard let audioURL = pendingAudioURL else { return }
-            // let whisper = WhisperProvider()
-            // let transcript = try await whisper.transcribe(audioURL: audioURL)
-            // draftStack.push(text: transcript, description: "Transcribed")
-            //
-            // let reframed = try await pipeline.reframe(transcript: transcript, tone: replyTone)
-            // draftStack.push(reframed)
+            let whisper = WhisperProvider()
+            let transcript = try await whisper.transcribe(audioURL: audioURL)
+            draftStack.push(text: transcript, description: "Transcribed")
 
-            // Placeholder until WhisperKit is linked:
-            draftStack.push(text: "[Transcription unavailable — WhisperKit not linked]",
-                            description: "Transcribed")
+            let reframed = try await pipeline.reframe(transcript: transcript, tone: replyTone)
+            draftStack.push(reframed)
         } catch {
             errorMessage = error.localizedDescription
         }

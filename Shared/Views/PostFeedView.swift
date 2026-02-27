@@ -130,6 +130,8 @@ struct PostFeedView: View {
 
     /// iOS only: shows the linked-note panel as a full-screen sheet.
     @State private var showNotesSheet = false
+    /// Item whose reply sheet is currently open.
+    @State private var replyToItem: PostCardItem? = nil
 
     var body: some View {
         VStack(spacing: 0) {
@@ -169,7 +171,9 @@ struct PostFeedView: View {
                 ScrollView {
                     LazyVStack(spacing: 12) {
                         ForEach(visibleItems) { item in
-                            PostCardView(item: item, entity: entity)
+                            PostCardView(item: item, entity: entity, onReply: {
+                                replyToItem = item
+                            })
                         }
                     }
                     .padding()
@@ -208,6 +212,52 @@ struct PostFeedView: View {
             .presentationDetents([.medium, .large])
         }
 #endif
+        // Reply sheet — uses the best available AI provider from Keychain.
+        .sheet(item: $replyToItem) { postCardItem in
+            let pipeline = makePipeline()
+            if let email = emailItems.first(where: { $0.id == postCardItem.id }) {
+                VoiceReplyView(
+                    item: email,
+                    replyTone: entity.replyTone,
+                    pipeline: pipeline
+                )
+            } else if let feed = feedItems.first(where: { $0.id == postCardItem.id }) {
+                VoiceReplyView(
+                    item: feed,
+                    replyTone: entity.replyTone,
+                    pipeline: pipeline
+                )
+            } else {
+                Text("Item not found").padding()
+            }
+        }
+    }
+
+    // MARK: - Pipeline factory
+
+    /// Creates a VoiceReplyPipeline backed by the best configured AI provider.
+    /// Falls back to MockAIProvider if no API key is in Keychain.
+    private func makePipeline() -> VoiceReplyPipeline {
+        if let key = ClaudeProvider.apiKey() {
+            return VoiceReplyPipeline(
+                aiProvider: ClaudeProvider(apiKey: key),
+                gate: .shared,
+                providerId: "claude"
+            )
+        }
+        if let key = OpenAIProvider.apiKey() {
+            return VoiceReplyPipeline(
+                aiProvider: OpenAIProvider(apiKey: key),
+                gate: .shared,
+                providerId: "openai"
+            )
+        }
+        // No key configured — pipeline will surface errors in VoiceReplyView's error banner.
+        return VoiceReplyPipeline(
+            aiProvider: MockAIProvider(providerId: "none"),
+            gate: .shared,
+            providerId: "none"
+        )
     }
 }
 

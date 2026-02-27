@@ -1,4 +1,5 @@
 import Foundation
+import SwiftAnthropic
 import Receptacle  // AIProvider, AIProviderError, ReplyTone, CalendarEventDraft
 
 // MARK: - ClaudeProvider
@@ -7,57 +8,6 @@ import Receptacle  // AIProvider, AIProviderError, ReplyTone, CalendarEventDraft
 ///
 /// Opt-in only — API key stored in Keychain. All calls gated by `AIGate`.
 /// Default model: `claude-sonnet-4-6` (best balance of speed and quality).
-///
-/// ## SwiftAnthropic integration (requires Xcode + package linked):
-///
-/// ### Summarise:
-/// ```swift
-/// let anthropic = AnthropicSwiftUI(apiKey: apiKey)
-/// // or: let anthropic = Anthropic(apiKey: apiKey)
-/// let param = MessageParameter(
-///     model: .claude_sonnet_4_6,    // "claude-sonnet-4-6"
-///     messages: [
-///         .init(role: .user, content: .list([
-///             .text("Summarise the following email in 2-3 sentences:\n\n\(text)")
-///         ]))
-///     ],
-///     maxTokens: 512
-/// )
-/// let response = try await anthropic.createMessage(param)
-/// return response.content.compactMap { block -> String? in
-///     if case .text(let t) = block { return t.text }
-///     return nil
-/// }.joined()
-/// ```
-///
-/// ### Reframe tone:
-/// ```swift
-/// let systemPrompt = "You are a writing assistant. " +
-///     "Rewrite the user's email reply in a \(toneDescription(tone)) tone. " +
-///     "Preserve meaning. Return only the rewritten text, no commentary."
-/// let param = MessageParameter(
-///     model: .claude_sonnet_4_6,
-///     system: systemPrompt,
-///     messages: [.init(role: .user, content: .list([.text(text)]))],
-///     maxTokens: 1024
-/// )
-/// ```
-///
-/// ### Event parsing (Phase 12):
-/// ```swift
-/// let systemPrompt = """
-///     Extract event details from the text as JSON:
-///     {"title":"...","start":"ISO8601","end":"ISO8601","location":"...","attendees":[]}
-///     Return only valid JSON.
-///     """
-/// let param = MessageParameter(
-///     model: .claude_sonnet_4_6,
-///     system: systemPrompt,
-///     messages: [.init(role: .user, content: .list([.text(text)]))],
-///     maxTokens: 256
-/// )
-/// // Then decode with JSONDecoder
-/// ```
 public actor ClaudeProvider: AIProvider {
 
     public let providerId   = "claude"
@@ -75,53 +25,83 @@ public actor ClaudeProvider: AIProvider {
     // MARK: - AIProvider
 
     public func summarise(text: String) async throws -> String {
-        // Uncomment when SwiftAnthropic is linked in Xcode target:
-        //
-        // let anthropic = Anthropic(apiKey: apiKey)
-        // let param = MessageParameter(
-        //     model: .init(model),
-        //     messages: [.init(role: .user, content: .list([
-        //         .text("Summarise the following email in 2-3 sentences:\n\n\(text)")
-        //     ]))],
-        //     maxTokens: 512
-        // )
-        // let response = try await anthropic.createMessage(param)
-        // return response.content.compactMap { block -> String? in
-        //     if case .text(let t) = block { return t.text }
-        //     return nil
-        // }.joined()
-        throw AIProviderError.notConfigured
+        let service = AnthropicServiceFactory.service(apiKey: apiKey, betaHeaders: nil)
+        let param = MessageParameter(
+            model: .other(model),
+            messages: [
+                .init(role: MessageParameter.Message.Role.user.rawValue,
+                      content: .text("Summarise the following content in 2-3 concise sentences:\n\n\(text)"))
+            ],
+            maxTokens: 512
+        )
+        let response = try await service.createMessage(param)
+        return response.content.compactMap {
+            if case .text(let t) = $0 { return t } else { return nil }
+        }.joined()
     }
 
     public func reframe(text: String, tone: ReplyTone) async throws -> String {
-        // Uncomment when SwiftAnthropic is linked (Phase 9):
-        //
-        // let systemPrompt = "You are a writing assistant. "
-        //     + "Rewrite the email reply in a \(toneDescription(tone)) tone. "
-        //     + "Preserve all key information. Return only the rewritten reply."
-        // let anthropic = Anthropic(apiKey: apiKey)
-        // let param = MessageParameter(
-        //     model: .init(model),
-        //     system: systemPrompt,
-        //     messages: [.init(role: .user, content: .list([.text(text)]))],
-        //     maxTokens: 1024
-        // )
-        // let response = try await anthropic.createMessage(param)
-        // return response.content.compactMap { block -> String? in
-        //     if case .text(let t) = block { return t.text }
-        //     return nil
-        // }.joined()
-        throw AIProviderError.notConfigured
+        let service = AnthropicServiceFactory.service(apiKey: apiKey, betaHeaders: nil)
+        let param = MessageParameter(
+            model: .other(model),
+            messages: [
+                .init(role: MessageParameter.Message.Role.user.rawValue,
+                      content: .text(text))
+            ],
+            maxTokens: 1024,
+            system: .text(
+                "You are a writing assistant. Rewrite the email reply in a \(toneDescription(tone)) tone. "
+                + "Preserve all key information and intent. Return only the rewritten reply."
+            )
+        )
+        let response = try await service.createMessage(param)
+        return response.content.compactMap {
+            if case .text(let t) = $0 { return t } else { return nil }
+        }.joined()
     }
 
     public func parseEvent(from text: String) async throws -> CalendarEventDraft {
-        // Phase 12: structured JSON output + JSONDecoder
-        throw AIProviderError.notConfigured
+        let service = AnthropicServiceFactory.service(apiKey: apiKey, betaHeaders: nil)
+        let systemPrompt = """
+            Extract event details from the text and return valid JSON only, with no commentary.
+            Format: {"title":"...","start":"ISO8601","end":"ISO8601","location":"...","attendees":[],"allDay":false}
+            If a field is unknown, omit it or use null.
+            """
+        let param = MessageParameter(
+            model: .other(model),
+            messages: [
+                .init(role: MessageParameter.Message.Role.user.rawValue,
+                      content: .text(text))
+            ],
+            maxTokens: 256,
+            system: .text(systemPrompt)
+        )
+        let response = try await service.createMessage(param)
+        let jsonString = response.content.compactMap {
+            if case .text(let t) = $0 { return t } else { return nil }
+        }.joined()
+        return try decodeEventDraft(from: jsonString)
     }
 
     public func suggestTags(for text: String) async throws -> [String] {
-        // Phase 10
-        throw AIProviderError.notConfigured
+        let service = AnthropicServiceFactory.service(apiKey: apiKey, betaHeaders: nil)
+        let param = MessageParameter(
+            model: .other(model),
+            messages: [
+                .init(role: MessageParameter.Message.Role.user.rawValue,
+                      content: .text(text))
+            ],
+            maxTokens: 128,
+            system: .text(
+                "Suggest 3-5 relevant single-word or short-phrase tags for this content. "
+                + "Return only a comma-separated list, nothing else."
+            )
+        )
+        let response = try await service.createMessage(param)
+        let raw = response.content.compactMap {
+            if case .text(let t) = $0 { return t } else { return nil }
+        }.joined()
+        return raw.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
     }
 
     // MARK: - Helpers
@@ -137,5 +117,39 @@ public actor ClaudeProvider: AIProvider {
         case .friendly:         return "warm and friendly"
         case .custom(let p):    return p
         }
+    }
+
+    private func decodeEventDraft(from jsonString: String) throws -> CalendarEventDraft {
+        // Extract JSON from the response (may be wrapped in markdown code blocks)
+        var cleaned = jsonString
+        if let start = cleaned.range(of: "{"), let end = cleaned.range(of: "}", options: .backwards) {
+            cleaned = String(cleaned[start.lowerBound...end.upperBound])
+        }
+        guard let data = cleaned.data(using: .utf8) else {
+            throw AIProviderError.decodingFailed
+        }
+
+        struct ParsedEvent: Decodable {
+            var title: String?
+            var start: String?
+            var end: String?
+            var location: String?
+            var attendees: [String]?
+            var allDay: Bool?
+        }
+
+        let parsed = try JSONDecoder().decode(ParsedEvent.self, from: data)
+        let iso = ISO8601DateFormatter()
+        let startDate = parsed.start.flatMap { iso.date(from: $0) } ?? Date().addingTimeInterval(3600)
+        let endDate = parsed.end.flatMap { iso.date(from: $0) } ?? startDate.addingTimeInterval(3600)
+
+        return CalendarEventDraft(
+            title: parsed.title ?? "Untitled Event",
+            startDate: startDate,
+            endDate: endDate,
+            location: parsed.location,
+            attendees: parsed.attendees ?? [],
+            isAllDay: parsed.allDay ?? false
+        )
     }
 }

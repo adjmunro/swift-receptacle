@@ -74,70 +74,147 @@ private struct TagRowView: View {
 
 /// Detail view: cross-source items associated with the selected tag.
 ///
-/// Phase 10: @Query predicates for each item type.
-/// Items of all types that carry the selected tagId appear here.
-///
-/// ```swift
-/// // Phase 10 — uncomment when item @Models have tagIds arrays:
-/// @Query private var emails: [EmailItem]
-/// @Query private var feedItems: [FeedItem]
-/// @Query private var notes: [Note]
-/// @Query private var savedLinks: [SavedLink]
-///
-/// // Filter in view body:
-/// let taggedEmails    = emails.filter { $0.tagIds.contains(tagId) }
-/// let taggedFeedItems = feedItems.filter { $0.tagIds.contains(tagId) }
-/// let taggedNotes     = notes.filter { $0.tagIds.contains(tagId) }
-/// let taggedLinks     = savedLinks.filter { $0.tagIds.contains(tagId) }
-/// ```
+/// All item types are queried and filtered client-side by `tagId`.
+/// SwiftData does not support `array contains` predicates, so filtering
+/// happens in Swift after loading all items.
 struct TaggedItemsView: View {
     let tagId: String
 
-    // Placeholder queries — uncomment as item types gain tagIds (Phase 10+):
-    // @Query private var savedLinks: [SavedLink]
+    @Query(sort: \EmailItem.date, order: .reverse) private var allEmails: [EmailItem]
+    @Query(sort: \FeedItem.date, order: .reverse) private var allFeedItems: [FeedItem]
+    @Query(sort: \Note.updatedAt, order: .reverse) private var allNotes: [Note]
+    @Query(sort: \SavedLink.savedAt, order: .reverse) private var allSavedLinks: [SavedLink]
+
+    private var taggedEmails: [EmailItem]    { allEmails.filter    { $0.tagIds.contains(tagId) && !$0.isDeleted && !$0.isArchived } }
+    private var taggedFeedItems: [FeedItem]  { allFeedItems.filter  { $0.tagIds.contains(tagId) } }
+    private var taggedNotes: [Note]          { allNotes.filter      { $0.tagIds.contains(tagId) } }
+    private var taggedLinks: [SavedLink]     { allSavedLinks.filter { $0.tagIds.contains(tagId) } }
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                // SavedLink section
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("Saved Links", systemImage: "link")
-                        .font(.headline)
-                    // Phase 10: render SavedLink rows filtered by tagId
-                    Text("Saved links with this tag appear here.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 24) {
+
+                // Saved Links
+                if !taggedLinks.isEmpty {
+                    tagSection(title: "Saved Links", systemImage: "link") {
+                        ForEach(taggedLinks) { link in
+                            savedLinkRow(link)
+                        }
+                    }
                 }
 
-                // Email section
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("Emails", systemImage: "envelope")
-                        .font(.headline)
-                    Text("Emails with this tag appear here.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                // Emails
+                if !taggedEmails.isEmpty {
+                    tagSection(title: "Emails", systemImage: "envelope") {
+                        ForEach(taggedEmails) { email in
+                            emailRow(email)
+                        }
+                    }
                 }
 
-                // RSS section
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("Feed Articles", systemImage: "newspaper")
-                        .font(.headline)
-                    Text("RSS / Atom / JSON Feed articles with this tag appear here.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                // Feed Articles
+                if !taggedFeedItems.isEmpty {
+                    tagSection(title: "Feed Articles", systemImage: "newspaper") {
+                        ForEach(taggedFeedItems) { feed in
+                            feedRow(feed)
+                        }
+                    }
                 }
 
-                // Notes section
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("Notes", systemImage: "note.text")
-                        .font(.headline)
-                    Text("Notes with this tag appear here.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                // Notes
+                if !taggedNotes.isEmpty {
+                    tagSection(title: "Notes", systemImage: "note.text") {
+                        ForEach(taggedNotes) { note in
+                            noteRow(note)
+                        }
+                    }
+                }
+
+                if taggedLinks.isEmpty && taggedEmails.isEmpty && taggedFeedItems.isEmpty && taggedNotes.isEmpty {
+                    ContentUnavailableView(
+                        "No Tagged Items",
+                        systemImage: "tag.slash",
+                        description: Text("No items carry this tag yet.")
+                    )
                 }
             }
             .padding()
         }
         .navigationTitle("Tagged Items")
+    }
+
+    // MARK: - Section builder
+
+    @ViewBuilder
+    private func tagSection<Content: View>(
+        title: String,
+        systemImage: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(title, systemImage: systemImage)
+                .font(.headline)
+            content()
+        }
+    }
+
+    // MARK: - Row views
+
+    private func savedLinkRow(_ link: SavedLink) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(link.title ?? link.urlString)
+                    .font(.subheadline)
+                    .lineLimit(1)
+                Text(link.savedAt.formatted(date: .abbreviated, time: .omitted))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Image(systemName: "link")
+                .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func emailRow(_ email: EmailItem) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(email.subject)
+                .font(.subheadline)
+                .lineLimit(1)
+            HStack {
+                Text(email.fromAddress)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(email.date.formatted(date: .abbreviated, time: .omitted))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func feedRow(_ feed: FeedItem) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(feed.title)
+                .font(.subheadline)
+                .lineLimit(1)
+            Text(feed.date.formatted(date: .abbreviated, time: .omitted))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func noteRow(_ note: Note) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(note.title)
+                .font(.subheadline)
+            Text(note.updatedAt.formatted(date: .abbreviated, time: .omitted))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 4)
     }
 }

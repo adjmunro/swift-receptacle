@@ -11,23 +11,28 @@
 		00BF07ADDC9C683292F6D51F /* Tag.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0003874E41F0A3D3B23E3D76 /* Tag.swift */; };
 		02D4714DB953373C9A2669FA /* AttachmentSaver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27BE52936CF3B58BA3F6A7DA /* AttachmentSaver.swift */; };
 		0306EE2CE4CE997A3CE08947 /* AIProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA40E50AEF014E4816E60EC /* AIProvider.swift */; };
+		038E0E001062E8B45022D8A1 /* MSAL in Frameworks */ = {isa = PBXBuildFile; productRef = 3E27953231767C2C20CC75C0 /* MSAL */; };
 		0919C0EFA43A8AEE61F077B3 /* TagBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26947BC82D877B6965DF8331 /* TagBrowserView.swift */; };
 		0B13F12503763FF076344CA4 /* AccountSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4C5A3D2F2845911BC958C2A /* AccountSetupView.swift */; };
 		0CEE8B774C313CDB0DF31A7A /* WebViewSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22C7A0E325A9396DC82D2490 /* WebViewSource.swift */; };
 		0DBCEB0552F56C1C5B74F3CC /* SharedWebViewSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADECF5B17ADFC31344E382D6 /* SharedWebViewSession.swift */; };
+		1377FC9D953C33E35C170CB2 /* Textual in Frameworks */ = {isa = PBXBuildFile; productRef = 2305E75C7744D9C5A79D377C /* Textual */; };
 		1539D416664C120D0CCD2256 /* Phase12Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0F6F8446CF60796409E2592 /* Phase12Tests.swift */; };
 		15983740EA6021CB5FD9B6F4 /* PrivacyPolicySummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21F8ABE37D85F55D92D5E53 /* PrivacyPolicySummaryView.swift */; };
 		173D9DD8E57CF2286E7DA6A2 /* Receptacle in Frameworks */ = {isa = PBXBuildFile; productRef = 97136B4973A8E15469B2A1FC /* Receptacle */; };
 		179DBCDCA1292BEAE267ACF7 /* VoiceReplyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCD16BF1F7967721AE73D10A /* VoiceReplyTests.swift */; };
 		18D87703EDA58F74EA97A3F1 /* AccountsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBA16B21CD3BB86337B8EFC7 /* AccountsSettingsView.swift */; };
 		1E733DBEEF290DE7556D5260 /* KanbanBoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A98CA5643BDDE821775BD85F /* KanbanBoardView.swift */; };
+		251CF6CC5722AE75E28F02AC /* FeedKit in Frameworks */ = {isa = PBXBuildFile; productRef = 2055A98A3DA15C662139AB53 /* FeedKit */; };
 		25805D41383482F988123FEC /* ReceptacleApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5F470FC91E3B1B13019E260 /* ReceptacleApp.swift */; };
 		28B30570C41CF644BF151299 /* SavedLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56B39D3B4E08584432385161 /* SavedLink.swift */; };
+		296601F97BF49F149AD58F8E /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 4AE6D5E7D1E48DF7AF4FF7A1 /* WhisperKit */; };
 		2C75A6D24B2B1215CD96CB93 /* Entity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F496A06D72959437D3DDC29 /* Entity.swift */; };
 		2F3F13048FAEB90588394348 /* QuotedRangeDetectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 744F85D6724451AC1BBC6482 /* QuotedRangeDetectorTests.swift */; };
 		306E0DE50D3CDB99CDE2FCED /* CalendarEventCreatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B1253EA1530E06760F11E5B /* CalendarEventCreatorView.swift */; };
 		34ECC3A2048FB51F5B03DE1C /* PreviewData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5161F202079E09DF97F26EC9 /* PreviewData.swift */; };
 		36BC599E728BEE88F8545447 /* Entity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F496A06D72959437D3DDC29 /* Entity.swift */; };
+		398B00CB8EB4BB45C5C792CE /* SwiftAnthropic in Frameworks */ = {isa = PBXBuildFile; productRef = 254ED27419272945338D1F41 /* SwiftAnthropic */; };
 		39BA3B5E5A01A6C6C86DB542 /* EntityListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 049C90A7C052FE480C3C7011 /* EntityListView.swift */; };
 		3C394A8F0F5D648A7D071796 /* OAuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2206627A32226C73DB3CF921 /* OAuthManager.swift */; };
 		3D136431E6E21F09CB9C3BE8 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB4A7DF48A5FAA24894E00FB /* KeychainHelper.swift */; };
@@ -60,12 +65,15 @@
 		712CE7146C93290661E94E56 /* Tag.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0003874E41F0A3D3B23E3D76 /* Tag.swift */; };
 		72CE46EC5DE714E019643931 /* RulesEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC2F6FC490FC8D02026814DE /* RulesEditorView.swift */; };
 		747AC3FB217A674104DB1306 /* Receptacle in Frameworks */ = {isa = PBXBuildFile; productRef = 79334A9D16BF6C65F5E0BCA7 /* Receptacle */; };
+		74F21C3425D302E5EC905227 /* Markdown in Frameworks */ = {isa = PBXBuildFile; productRef = 577BB90104D5F240D0B269DF /* Markdown */; };
 		766534BEBEB1B4790827899B /* NoteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B62905AC1A0BA4C69D2A785 /* NoteTests.swift */; };
 		77D04B41F784A5C16FFC353D /* WebViewTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01466196F0708E405588B148 /* WebViewTabView.swift */; };
 		79261AD06DEE09B55646A66E /* Phase13Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D97CB1FC3B9C7847AA719E6B /* Phase13Tests.swift */; };
+		7C67B8E2A396C3A68798842B /* FeedKit in Frameworks */ = {isa = PBXBuildFile; productRef = 1D6D1BAD0E77C86B69DC4191 /* FeedKit */; };
 		7EA77B2DBE8CBAF18EF79FDA /* HTMLBodyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F039BD5CCB132E3B81FE23F3 /* HTMLBodyView.swift */; };
 		81CACDB3AB3B6517770F4298 /* sample.rss in Resources */ = {isa = PBXBuildFile; fileRef = A9858E188770E0B06CBD580B /* sample.rss */; };
 		82E108D2005E19B0872FA41A /* ContactsManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82AF6036135FCB4A45AC42BB /* ContactsManagerView.swift */; };
+		868A362462D3F162C979EEED /* Textual in Frameworks */ = {isa = PBXBuildFile; productRef = 7CD71EB254FB46EF554004AA /* Textual */; };
 		87D14B826BD9E6181C87DF8E /* NoteEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82EBA39582FB20D5266AF6DD /* NoteEditorView.swift */; };
 		8CCCB2872257890CDE614937 /* AIPermission.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8967886FF17886BD88438FA5 /* AIPermission.swift */; };
 		8E8C58B1D438F43FE55EF572 /* TaggingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A977E3A643650F54344D25A /* TaggingService.swift */; };
@@ -73,10 +81,12 @@
 		9092F2E724A5B56DA335D3C9 /* ClaudeProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC51E4B296F91040E3DF8FA5 /* ClaudeProvider.swift */; };
 		91715D28DBE42D212295EBBF /* sample.atom in Resources */ = {isa = PBXBuildFile; fileRef = 0D4D106121DECACF6410EB2B /* sample.atom */; };
 		9331A114E6D1AC358A96E930 /* WebViewTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01466196F0708E405588B148 /* WebViewTabView.swift */; };
+		96A811EC1201A356274617D3 /* SwiftAnthropic in Frameworks */ = {isa = PBXBuildFile; productRef = 31EFA85A4269102D25ED101D /* SwiftAnthropic */; };
 		975F31DE0B53257736CBC46D /* AttachmentSaverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79AD6FD7BE480F99EC27EC3A /* AttachmentSaverTests.swift */; };
 		9860ED76B0F48EB353C9599E /* EmailItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5842DF67FFF7905836D465A6 /* EmailItem.swift */; };
 		99BF71C658B3B936DCC24282 /* OpenAIProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26CBF94749E7BB270FD8BB58 /* OpenAIProvider.swift */; };
 		9D54BAA0336C433596EE6DC4 /* ReceptacleUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F6025AE11FF2720905B1AD /* ReceptacleUITests.swift */; };
+		9D57AEE06ED8F3F8958F7FB8 /* MSAL in Frameworks */ = {isa = PBXBuildFile; productRef = 8B7E8579EFCC80C1ACD2CEFF /* MSAL */; };
 		A10ECFCBA7EF89127FEC9E93 /* NoteEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82EBA39582FB20D5266AF6DD /* NoteEditorView.swift */; };
 		A517ED7697E0C25D6088A505 /* TodoItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E027E724287C0D81D8A481F /* TodoItem.swift */; };
 		A9B8288EF801FEC3E9D96A62 /* NoteGraph.swift in Sources */ = {isa = PBXBuildFile; fileRef = 929F29DEBCE7BB0FF9999E2D /* NoteGraph.swift */; };
@@ -97,18 +107,24 @@
 		CCE1D2DE21EF72C9A6EFE21B /* FeedItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D7FE27216847348CD604F9E /* FeedItem.swift */; };
 		CEB7CD3FAB5FFA1CE6BB48AC /* NoteGraph.swift in Sources */ = {isa = PBXBuildFile; fileRef = 929F29DEBCE7BB0FF9999E2D /* NoteGraph.swift */; };
 		CECDA39966C96C01966892EE /* SidebarNoteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 651011FD29D78785D4B4F0B2 /* SidebarNoteView.swift */; };
+		D108AAAFA9BBCB62A016D17C /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = D8F55F151B859BB21EB39BAD /* WhisperKit */; };
 		D2232895571A3F8462B0A4D0 /* PrivacyPolicySummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21F8ABE37D85F55D92D5E53 /* PrivacyPolicySummaryView.swift */; };
 		D2996D15426DF44FBE158231 /* SharedWebViewSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADECF5B17ADFC31344E382D6 /* SharedWebViewSession.swift */; };
 		D2DE3F4EDD71E8253818F459 /* ContactsManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82AF6036135FCB4A45AC42BB /* ContactsManagerView.swift */; };
 		D416EF74D707B8AB429D28D3 /* ClaudeProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC51E4B296F91040E3DF8FA5 /* ClaudeProvider.swift */; };
+		D5C4051A26A116F729A46162 /* OpenAI in Frameworks */ = {isa = PBXBuildFile; productRef = BF256FDC9B4E73F0E97A73F4 /* OpenAI */; };
 		DAE12108EF9C2F1794CF496F /* WebViewSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22C7A0E325A9396DC82D2490 /* WebViewSource.swift */; };
 		DB52591027F4F5A119D3FB02 /* AIPermissionsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FFF3711E5A23143CE401ED3 /* AIPermissionsPanel.swift */; };
 		DDAEB46E70AB34FE76200ABC /* OAuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2206627A32226C73DB3CF921 /* OAuthManager.swift */; };
+		E102F4DD9B97B02819CB10D9 /* Markdown in Frameworks */ = {isa = PBXBuildFile; productRef = 0B32C5520F3A95793110BD59 /* Markdown */; };
 		E1338E8AAD3EA39993AB7078 /* sample.json in Resources */ = {isa = PBXBuildFile; fileRef = FA027B9DA040BE8C91D51356 /* sample.json */; };
 		E1EB1CFC8F94BF8746A4B48C /* FeedSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = F01508FB60CC7B2DB308EFE3 /* FeedSource.swift */; };
+		E2843918CD0AE0540E20649C /* OpenAI in Frameworks */ = {isa = PBXBuildFile; productRef = BBF10D31ADAF70C93DEF1F41 /* OpenAI */; };
+		E682848F106620FC5C38E142 /* SwiftMail in Frameworks */ = {isa = PBXBuildFile; productRef = 3C2372846B6504DC1671D313 /* SwiftMail */; };
 		E832750C58F215FA72429003 /* RuleEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B24BE546DD896B76396BB0E2 /* RuleEngineTests.swift */; };
 		F0D378D4EFCEF2B77DC36B7A /* AIPermission.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8967886FF17886BD88438FA5 /* AIPermission.swift */; };
 		F14B93C56139D6A46FE0F6E7 /* PostCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 686BA724442CD977DA7F8393 /* PostCardView.swift */; };
+		F2B1A07E4F3BD0F0C88342D7 /* SwiftMail in Frameworks */ = {isa = PBXBuildFile; productRef = 9186D1AB0A3C914BEA58A480 /* SwiftMail */; };
 		F598F3EA652DF1A0C31FCCE4 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = F2F471A158C14A37D5547449 /* GoogleSignInSwift */; };
 		F68AB25D8BB5EDF970DE11B9 /* IMAPSourceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AD561FA1383E8A803F7CA3B /* IMAPSourceTests.swift */; };
 		F73329903C4FC18F7F81DB25 /* VoiceReplyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EC7F09C9A31C6F72921931B /* VoiceReplyView.swift */; };
@@ -197,6 +213,14 @@
 				747AC3FB217A674104DB1306 /* Receptacle in Frameworks */,
 				FB668551DA068DFB03CB4B8F /* GoogleSignIn in Frameworks */,
 				AC0F6BA5A0780A5D6BC28FEE /* GoogleSignInSwift in Frameworks */,
+				E682848F106620FC5C38E142 /* SwiftMail in Frameworks */,
+				7C67B8E2A396C3A68798842B /* FeedKit in Frameworks */,
+				D5C4051A26A116F729A46162 /* OpenAI in Frameworks */,
+				96A811EC1201A356274617D3 /* SwiftAnthropic in Frameworks */,
+				D108AAAFA9BBCB62A016D17C /* WhisperKit in Frameworks */,
+				868A362462D3F162C979EEED /* Textual in Frameworks */,
+				74F21C3425D302E5EC905227 /* Markdown in Frameworks */,
+				038E0E001062E8B45022D8A1 /* MSAL in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -215,6 +239,14 @@
 				F79D144C9BB66CA7B95BD2BD /* Receptacle in Frameworks */,
 				B17EB10658D2612F7F4FD12A /* GoogleSignIn in Frameworks */,
 				F598F3EA652DF1A0C31FCCE4 /* GoogleSignInSwift in Frameworks */,
+				F2B1A07E4F3BD0F0C88342D7 /* SwiftMail in Frameworks */,
+				251CF6CC5722AE75E28F02AC /* FeedKit in Frameworks */,
+				E2843918CD0AE0540E20649C /* OpenAI in Frameworks */,
+				398B00CB8EB4BB45C5C792CE /* SwiftAnthropic in Frameworks */,
+				296601F97BF49F149AD58F8E /* WhisperKit in Frameworks */,
+				1377FC9D953C33E35C170CB2 /* Textual in Frameworks */,
+				E102F4DD9B97B02819CB10D9 /* Markdown in Frameworks */,
+				9D57AEE06ED8F3F8958F7FB8 /* MSAL in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -501,6 +533,14 @@
 				79334A9D16BF6C65F5E0BCA7 /* Receptacle */,
 				CCC606725484930DA111C603 /* GoogleSignIn */,
 				6E8E498B197188824F90D8F8 /* GoogleSignInSwift */,
+				3C2372846B6504DC1671D313 /* SwiftMail */,
+				1D6D1BAD0E77C86B69DC4191 /* FeedKit */,
+				BF256FDC9B4E73F0E97A73F4 /* OpenAI */,
+				31EFA85A4269102D25ED101D /* SwiftAnthropic */,
+				D8F55F151B859BB21EB39BAD /* WhisperKit */,
+				7CD71EB254FB46EF554004AA /* Textual */,
+				577BB90104D5F240D0B269DF /* Markdown */,
+				3E27953231767C2C20CC75C0 /* MSAL */,
 			);
 			productName = "Receptacle-iOS";
 			productReference = E2E0B74E9345325B55B999C9 /* Receptacle-iOS.app */;
@@ -539,6 +579,14 @@
 				150CB3B98A5C898F0EE88C3D /* Receptacle */,
 				7F3957AE33D9A26AA6FDA568 /* GoogleSignIn */,
 				F2F471A158C14A37D5547449 /* GoogleSignInSwift */,
+				9186D1AB0A3C914BEA58A480 /* SwiftMail */,
+				2055A98A3DA15C662139AB53 /* FeedKit */,
+				BBF10D31ADAF70C93DEF1F41 /* OpenAI */,
+				254ED27419272945338D1F41 /* SwiftAnthropic */,
+				4AE6D5E7D1E48DF7AF4FF7A1 /* WhisperKit */,
+				2305E75C7744D9C5A79D377C /* Textual */,
+				0B32C5520F3A95793110BD59 /* Markdown */,
+				8B7E8579EFCC80C1ACD2CEFF /* MSAL */,
 			);
 			productName = ReceptacleApp;
 			productReference = A8C2B327C9EAE90B0F17CF3F /* ReceptacleApp.app */;
@@ -572,7 +620,15 @@
 			mainGroup = CB354A759C17220FD909D5B8;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				C6C5D23EC8D65DFB88E7B353 /* XCRemoteSwiftPackageReference "FeedKit" */,
 				4C8041441E06366616039B1B /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+				A96A1C86BFCA87FC1ABF3BF9 /* XCRemoteSwiftPackageReference "OpenAI" */,
+				020AE6CD82E89E70DF60295D /* XCRemoteSwiftPackageReference "SwiftAnthropic" */,
+				046C504A03BC617FE59208BA /* XCRemoteSwiftPackageReference "SwiftMail" */,
+				A0F13EAD3EC3EA397D1FF42D /* XCRemoteSwiftPackageReference "WhisperKit" */,
+				27B1EF5AD8FB168C09023798 /* XCRemoteSwiftPackageReference "microsoft-authentication-library-for-objc" */,
+				6294900D3BF9522C1992C6A6 /* XCRemoteSwiftPackageReference "swift-markdown" */,
+				9253E8A64AA730E89AF291B9 /* XCRemoteSwiftPackageReference "textual" */,
 				794684228A4E5A858D7A4F8F /* XCLocalSwiftPackageReference "." */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -1072,6 +1128,30 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		020AE6CD82E89E70DF60295D /* XCRemoteSwiftPackageReference "SwiftAnthropic" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/jamesrochabrun/SwiftAnthropic";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
+		046C504A03BC617FE59208BA /* XCRemoteSwiftPackageReference "SwiftMail" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Cocoanetics/SwiftMail";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+		27B1EF5AD8FB168C09023798 /* XCRemoteSwiftPackageReference "microsoft-authentication-library-for-objc" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/AzureAD/microsoft-authentication-library-for-objc";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.8.0;
+			};
+		};
 		4C8041441E06366616039B1B /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
@@ -1080,12 +1160,102 @@
 				minimumVersion = 9.0.0;
 			};
 		};
+		6294900D3BF9522C1992C6A6 /* XCRemoteSwiftPackageReference "swift-markdown" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-markdown";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.4.0;
+			};
+		};
+		9253E8A64AA730E89AF291B9 /* XCRemoteSwiftPackageReference "textual" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/gonzalezreal/textual";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.3.0;
+			};
+		};
+		A0F13EAD3EC3EA397D1FF42D /* XCRemoteSwiftPackageReference "WhisperKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/argmaxinc/WhisperKit";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.9.0;
+			};
+		};
+		A96A1C86BFCA87FC1ABF3BF9 /* XCRemoteSwiftPackageReference "OpenAI" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/MacPaw/OpenAI";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.2.0;
+			};
+		};
+		C6C5D23EC8D65DFB88E7B353 /* XCRemoteSwiftPackageReference "FeedKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/nmdias/FeedKit";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		0B32C5520F3A95793110BD59 /* Markdown */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6294900D3BF9522C1992C6A6 /* XCRemoteSwiftPackageReference "swift-markdown" */;
+			productName = Markdown;
+		};
 		150CB3B98A5C898F0EE88C3D /* Receptacle */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = Receptacle;
+		};
+		1D6D1BAD0E77C86B69DC4191 /* FeedKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C6C5D23EC8D65DFB88E7B353 /* XCRemoteSwiftPackageReference "FeedKit" */;
+			productName = FeedKit;
+		};
+		2055A98A3DA15C662139AB53 /* FeedKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C6C5D23EC8D65DFB88E7B353 /* XCRemoteSwiftPackageReference "FeedKit" */;
+			productName = FeedKit;
+		};
+		2305E75C7744D9C5A79D377C /* Textual */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9253E8A64AA730E89AF291B9 /* XCRemoteSwiftPackageReference "textual" */;
+			productName = Textual;
+		};
+		254ED27419272945338D1F41 /* SwiftAnthropic */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 020AE6CD82E89E70DF60295D /* XCRemoteSwiftPackageReference "SwiftAnthropic" */;
+			productName = SwiftAnthropic;
+		};
+		31EFA85A4269102D25ED101D /* SwiftAnthropic */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 020AE6CD82E89E70DF60295D /* XCRemoteSwiftPackageReference "SwiftAnthropic" */;
+			productName = SwiftAnthropic;
+		};
+		3C2372846B6504DC1671D313 /* SwiftMail */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 046C504A03BC617FE59208BA /* XCRemoteSwiftPackageReference "SwiftMail" */;
+			productName = SwiftMail;
+		};
+		3E27953231767C2C20CC75C0 /* MSAL */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 27B1EF5AD8FB168C09023798 /* XCRemoteSwiftPackageReference "microsoft-authentication-library-for-objc" */;
+			productName = MSAL;
+		};
+		4AE6D5E7D1E48DF7AF4FF7A1 /* WhisperKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A0F13EAD3EC3EA397D1FF42D /* XCRemoteSwiftPackageReference "WhisperKit" */;
+			productName = WhisperKit;
+		};
+		577BB90104D5F240D0B269DF /* Markdown */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6294900D3BF9522C1992C6A6 /* XCRemoteSwiftPackageReference "swift-markdown" */;
+			productName = Markdown;
 		};
 		6E8E498B197188824F90D8F8 /* GoogleSignInSwift */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -1096,19 +1266,49 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = Receptacle;
 		};
+		7CD71EB254FB46EF554004AA /* Textual */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9253E8A64AA730E89AF291B9 /* XCRemoteSwiftPackageReference "textual" */;
+			productName = Textual;
+		};
 		7F3957AE33D9A26AA6FDA568 /* GoogleSignIn */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 4C8041441E06366616039B1B /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
 			productName = GoogleSignIn;
 		};
+		8B7E8579EFCC80C1ACD2CEFF /* MSAL */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 27B1EF5AD8FB168C09023798 /* XCRemoteSwiftPackageReference "microsoft-authentication-library-for-objc" */;
+			productName = MSAL;
+		};
+		9186D1AB0A3C914BEA58A480 /* SwiftMail */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 046C504A03BC617FE59208BA /* XCRemoteSwiftPackageReference "SwiftMail" */;
+			productName = SwiftMail;
+		};
 		97136B4973A8E15469B2A1FC /* Receptacle */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = Receptacle;
+		};
+		BBF10D31ADAF70C93DEF1F41 /* OpenAI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A96A1C86BFCA87FC1ABF3BF9 /* XCRemoteSwiftPackageReference "OpenAI" */;
+			productName = OpenAI;
+		};
+		BF256FDC9B4E73F0E97A73F4 /* OpenAI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A96A1C86BFCA87FC1ABF3BF9 /* XCRemoteSwiftPackageReference "OpenAI" */;
+			productName = OpenAI;
 		};
 		CCC606725484930DA111C603 /* GoogleSignIn */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 4C8041441E06366616039B1B /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
 			productName = GoogleSignIn;
+		};
+		D8F55F151B859BB21EB39BAD /* WhisperKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A0F13EAD3EC3EA397D1FF42D /* XCRemoteSwiftPackageReference "WhisperKit" */;
+			productName = WhisperKit;
 		};
 		F2F471A158C14A37D5547449 /* GoogleSignInSwift */ = {
 			isa = XCSwiftPackageProductDependency;

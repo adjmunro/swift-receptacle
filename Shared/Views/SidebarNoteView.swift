@@ -9,9 +9,9 @@ import Receptacle  // NoteService, AIProvider, AIGate, NoteRecord
 /// Linked to the currently viewed item — shows any `Note` associated with it.
 ///
 /// ## AI Summarise behaviour
-/// Runs `aiProvider.summarise(text: itemContent)` through `AIGate`, then
-/// **appends** the result to the note (never replaces existing content).
-/// A revision is pushed first so the pre-summarise state can be restored.
+/// Runs `noteService.summariseAndAppend(itemContent:to:)`, then **appends** the result
+/// to the note (never replaces existing content). A revision is pushed automatically
+/// inside `NoteService` so the pre-summarise state can be restored.
 ///
 /// ## Wikilink navigation
 /// Tapping a `[[wikilink]]` in `NoteEditorView` calls `onNavigateToNote`
@@ -105,26 +105,24 @@ struct SidebarNoteView: View {
         defer { isSummarising = false }
 
         do {
-            // Phase 11: wire NoteService.summariseAndAppend, then sync SwiftData model
-            //
-            // let updatedRecord = try await noteService.summariseAndAppend(
-            //     itemContent: itemContent,
-            //     to: note.id.uuidString
-            // )
-            // if let updated = updatedRecord {
-            //     note.markdownContent = updated.markdownContent
-            //     note.updatedAt = updated.updatedAt
-            //     note.revisionHistory = updated.revisionHistory.map {
-            //         NoteRevision(timestamp: $0.timestamp,
-            //                      content: $0.content,
-            //                      changeDescription: $0.changeDescription)
-            //     }
-            // }
-
-            // Placeholder implementation (SwiftData sync wired in Xcode):
-            note.pushRevision(changeDescription: "AI summarise")
-            note.markdownContent += "\n\n---\n**AI Summary**\n[Summarisation unavailable — AI provider not linked]"
-
+            // NoteService.summariseAndAppend pushes a revision, runs AIGate-gated
+            // summarise, and returns the updated NoteRecord. We then sync the
+            // SwiftData Note @Model to match.
+            let updatedRecord = try await noteService.summariseAndAppend(
+                itemContent: itemContent,
+                to: note.id.uuidString
+            )
+            if let updated = updatedRecord {
+                note.markdownContent = updated.markdownContent
+                note.updatedAt = updated.updatedAt
+                note.revisionHistory = updated.revisionHistory.map {
+                    NoteRevision(
+                        timestamp: $0.timestamp,
+                        content: $0.content,
+                        changeDescription: $0.changeDescription
+                    )
+                }
+            }
         } catch {
             errorMessage = error.localizedDescription
         }
