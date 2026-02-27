@@ -54,6 +54,10 @@ targets:
       configs:
         Debug:
           PRODUCT_BUNDLE_IDENTIFIER: com.user.receptacle.debug
+          # Ad-hoc signing: run on your own Mac without a developer account.
+          # Release builds use Automatic signing for notarisation.
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: "-"
     scheme:
       testTargets:
         - ReceptacleTests
@@ -89,6 +93,8 @@ targets:
       configs:
         Debug:
           PRODUCT_BUNDLE_IDENTIFIER: com.user.receptacle.ios.debug
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: "-"
     scheme:
       testTargets:
         - ReceptacleTests
