@@ -27,7 +27,7 @@ struct EntityListView: View {
     /// macOS: drives NavigationSplitView detail. iOS: unused (NavigationLink handles navigation).
     @Binding var selectedEntity: Entity?
 
-    @State private var showingAddFeed  = false
+    @State private var showingFeeds    = false
     @State private var showingContacts = false
     @Environment(\.modelContext) private var modelContext
 
@@ -109,12 +109,17 @@ struct EntityListView: View {
         .listStyle(.sidebar)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             BottomActionBar(
-                showingAddFeed: $showingAddFeed,
+                showingFeeds: $showingFeeds,
                 showingContacts: $showingContacts
             )
         }
-        .sheet(isPresented: $showingAddFeed) {
-            AddFeedSheet()
+        .sheet(isPresented: $showingFeeds) {
+            NavigationStack {
+                FeedsManagerView()
+            }
+#if os(macOS)
+            .frame(minWidth: 500, idealWidth: 560, minHeight: 400)
+#endif
         }
         .sheet(isPresented: $showingContacts) {
             NavigationStack {
@@ -133,7 +138,7 @@ struct EntityListView: View {
 // MARK: - BottomActionBar
 
 private struct BottomActionBar: View {
-    @Binding var showingAddFeed: Bool
+    @Binding var showingFeeds: Bool
     @Binding var showingContacts: Bool
 
     var body: some View {
@@ -141,14 +146,14 @@ private struct BottomActionBar: View {
             Divider()
             HStack(spacing: 0) {
                 Button {
-                    showingAddFeed = true
+                    showingFeeds = true
                 } label: {
-                    Label("Add Feed", systemImage: "dot.radiowaves.up.forward")
+                    Label("Feeds", systemImage: "dot.radiowaves.up.forward")
                         .frame(maxWidth: .infinity)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help("Subscribe to an RSS or Atom feed")
+                .help("Manage RSS, Atom, and JSON Feed subscriptions")
 
                 Divider()
                     .frame(height: 20)

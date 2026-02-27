@@ -12,8 +12,10 @@ struct ContactsManagerView: View {
     @State private var showingAddContact = false
 
     var filtered: [Contact] {
-        guard !searchText.isEmpty else { return contacts }
-        return contacts.filter {
+        // Feeds are managed separately in FeedsManagerView.
+        let nonFeeds = contacts.filter { $0.type != .feed }
+        guard !searchText.isEmpty else { return nonFeeds }
+        return nonFeeds.filter {
             $0.displayName.localizedCaseInsensitiveContains(searchText)
         }
     }

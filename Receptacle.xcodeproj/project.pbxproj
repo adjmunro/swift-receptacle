@@ -79,10 +79,12 @@
 		868A362462D3F162C979EEED /* Textual in Frameworks */ = {isa = PBXBuildFile; productRef = 7CD71EB254FB46EF554004AA /* Textual */; };
 		87D14B826BD9E6181C87DF8E /* NoteEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82EBA39582FB20D5266AF6DD /* NoteEditorView.swift */; };
 		8CCCB2872257890CDE614937 /* AIPermission.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8967886FF17886BD88438FA5 /* AIPermission.swift */; };
+		8DB35BDE2F2B0FAC18323AD8 /* FeedsManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A63543B93D599308FEC7E77 /* FeedsManagerView.swift */; };
 		8E8C58B1D438F43FE55EF572 /* TaggingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A977E3A643650F54344D25A /* TaggingService.swift */; };
 		8F9A2EE53D797DC7A38FBAF9 /* TaggingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A977E3A643650F54344D25A /* TaggingService.swift */; };
 		9092F2E724A5B56DA335D3C9 /* ClaudeProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC51E4B296F91040E3DF8FA5 /* ClaudeProvider.swift */; };
 		91715D28DBE42D212295EBBF /* sample.atom in Resources */ = {isa = PBXBuildFile; fileRef = 0D4D106121DECACF6410EB2B /* sample.atom */; };
+		92471F678BBA9AF307C03B43 /* FeedsManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A63543B93D599308FEC7E77 /* FeedsManagerView.swift */; };
 		9331A114E6D1AC358A96E930 /* WebViewTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01466196F0708E405588B148 /* WebViewTabView.swift */; };
 		96A811EC1201A356274617D3 /* SwiftAnthropic in Frameworks */ = {isa = PBXBuildFile; productRef = 31EFA85A4269102D25ED101D /* SwiftAnthropic */; };
 		975F31DE0B53257736CBC46D /* AttachmentSaverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79AD6FD7BE480F99EC27EC3A /* AttachmentSaverTests.swift */; };
@@ -161,6 +163,7 @@
 		549778CD0EBBDEFF56F95CCD /* CalendarSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSource.swift; sourceTree = "<group>"; };
 		56B39D3B4E08584432385161 /* SavedLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedLink.swift; sourceTree = "<group>"; };
 		5842DF67FFF7905836D465A6 /* EmailItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailItem.swift; sourceTree = "<group>"; };
+		5A63543B93D599308FEC7E77 /* FeedsManagerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedsManagerView.swift; sourceTree = "<group>"; };
 		651011FD29D78785D4B4F0B2 /* SidebarNoteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarNoteView.swift; sourceTree = "<group>"; };
 		686BA724442CD977DA7F8393 /* PostCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostCardView.swift; sourceTree = "<group>"; };
 		6A977E3A643650F54344D25A /* TaggingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaggingService.swift; sourceTree = "<group>"; };
@@ -462,6 +465,7 @@
 				7B1253EA1530E06760F11E5B /* CalendarEventCreatorView.swift */,
 				82AF6036135FCB4A45AC42BB /* ContactsManagerView.swift */,
 				049C90A7C052FE480C3C7011 /* EntityListView.swift */,
+				5A63543B93D599308FEC7E77 /* FeedsManagerView.swift */,
 				F039BD5CCB132E3B81FE23F3 /* HTMLBodyView.swift */,
 				A98CA5643BDDE821775BD85F /* KanbanBoardView.swift */,
 				82EBA39582FB20D5266AF6DD /* NoteEditorView.swift */,
@@ -687,6 +691,7 @@
 				FCA0B73EC203EB0D8AE2933F /* FeedItem.swift in Sources */,
 				C4D583822C4AF66CDD0940CA /* FeedSource.swift in Sources */,
 				EAABFE54D5D56A67A132D38F /* FeedSyncService.swift in Sources */,
+				92471F678BBA9AF307C03B43 /* FeedsManagerView.swift in Sources */,
 				B629739386EFA5E0426F44C4 /* HTMLBodyView.swift in Sources */,
 				B852DD106403E99B2F55EC15 /* IMAPSource.swift in Sources */,
 				5212CD743BD51D6FD3D05447 /* KanbanBoardView.swift in Sources */,
@@ -747,6 +752,7 @@
 				CCE1D2DE21EF72C9A6EFE21B /* FeedItem.swift in Sources */,
 				E1EB1CFC8F94BF8746A4B48C /* FeedSource.swift in Sources */,
 				1291B9B35719B4F761D719D8 /* FeedSyncService.swift in Sources */,
+				8DB35BDE2F2B0FAC18323AD8 /* FeedsManagerView.swift in Sources */,
 				7EA77B2DBE8CBAF18EF79FDA /* HTMLBodyView.swift in Sources */,
 				5E12D6DEF25702AED05DD924 /* IMAPSource.swift in Sources */,
 				1E733DBEEF290DE7556D5260 /* KanbanBoardView.swift in Sources */,
