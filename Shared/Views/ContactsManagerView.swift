@@ -113,37 +113,96 @@ struct ContactRowView: View {
 
 struct ContactDetailView: View {
     @Bindable var contact: Contact
+    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+
+    @State private var showDeleteConfirm = false
+
+    private var navigationTitle: String {
+        contact.type == .feed ? "Edit Feed" : "Edit Contact"
+    }
+
+    private var deleteLabel: String {
+        contact.type == .feed ? "Remove Feed" : "Delete Contact"
+    }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section("Identity") {
-                    TextField("Display Name", text: $contact.displayName)
+                    TextField("Display Name", text: $contact.displayName, prompt: Text("Display Name"))
                     Picker("Type", selection: $contact.type) {
                         ForEach(ContactType.allCases, id: \.self) { type in
                             Text(type.displayName).tag(type)
                         }
                     }
                 }
-                Section("Source Identifiers") {
-                    ForEach(contact.sourceIdentifiers.indices, id: \.self) { i in
-                        HStack {
-                            Text(contact.sourceIdentifiers[i].type.rawValue)
-                                .foregroundStyle(.secondary)
-                                .frame(width: 80, alignment: .leading)
-                            Text(contact.sourceIdentifiers[i].value)
+
+                if !contact.sourceIdentifiers.isEmpty {
+                    Section(contact.type == .feed ? "Feed URL" : "Source Identifiers") {
+                        ForEach(contact.sourceIdentifiers.indices, id: \.self) { i in
+                            LabeledContent(contact.sourceIdentifiers[i].type.rawValue.uppercased()) {
+                                Text(contact.sourceIdentifiers[i].value)
+                                    .foregroundStyle(.secondary)
+                                    .textSelection(.enabled)
+                                    .multilineTextAlignment(.trailing)
+                            }
                         }
                     }
                 }
+
+                Section {
+                    Button(role: .destructive) {
+                        showDeleteConfirm = true
+                    } label: {
+                        Label(deleteLabel, systemImage: "trash")
+                            .frame(maxWidth: .infinity)
+                            .contentShape(Rectangle())
+                    }
+                }
             }
-            .navigationTitle("Edit Contact")
+            .formStyle(.grouped)
+            .navigationTitle(navigationTitle)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                 }
             }
+            .confirmationDialog(
+                deleteLabel,
+                isPresented: $showDeleteConfirm,
+                titleVisibility: .visible
+            ) {
+                Button(deleteLabel, role: .destructive) { deleteContact() }
+            } message: {
+                Text(contact.type == .feed
+                    ? "This will remove the feed subscription and all its cached articles."
+                    : "This will permanently delete this contact.")
+            }
         }
+#if os(macOS)
+        .frame(minWidth: 420, idealWidth: 460, minHeight: 320)
+#endif
+    }
+
+    private func deleteContact() {
+        let contactIdStr = contact.id.uuidString
+        if let entities = try? modelContext.fetch(FetchDescriptor<Entity>()) {
+            for entity in entities where entity.contactIds.contains(contactIdStr) {
+                entity.contactIds.removeAll { $0 == contactIdStr }
+                if entity.contactIds.isEmpty {
+                    let eid = entity.id.uuidString
+                    let feedDesc = FetchDescriptor<FeedItem>(predicate: #Predicate { $0.entityId == eid })
+                    (try? modelContext.fetch(feedDesc))?.forEach { modelContext.delete($0) }
+                    let mailDesc = FetchDescriptor<EmailItem>(predicate: #Predicate { $0.entityId == eid })
+                    (try? modelContext.fetch(mailDesc))?.forEach { modelContext.delete($0) }
+                    modelContext.delete(entity)
+                }
+            }
+        }
+        modelContext.delete(contact)
+        try? modelContext.save()
+        dismiss()
     }
 }
 
