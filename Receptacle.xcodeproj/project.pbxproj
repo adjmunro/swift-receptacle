@@ -107,6 +107,7 @@
 		C2568947CF5D79DF611E3A20 /* Note.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AF454CEC91E9AE4F8820B88 /* Note.swift */; };
 		C41F0CD924006A189FB4C9F7 /* VoiceReplyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EC7F09C9A31C6F72921931B /* VoiceReplyView.swift */; };
 		C4D583822C4AF66CDD0940CA /* FeedSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = F01508FB60CC7B2DB308EFE3 /* FeedSource.swift */; };
+		C6B0C574182401A994A4252D /* TagPickerSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52F4DD4845B77144D49186B2 /* TagPickerSection.swift */; };
 		CAEDEBE7CBE26C0010BEB073 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB4A7DF48A5FAA24894E00FB /* KeychainHelper.swift */; };
 		CB5995EA37C24A0B1F27AE3B /* AccountSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4C5A3D2F2845911BC958C2A /* AccountSetupView.swift */; };
 		CBE3EDF122C162A90F913ED7 /* Contact.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AEF124D09E85EC98D4C27A7 /* Contact.swift */; };
@@ -119,6 +120,7 @@
 		D2DE3F4EDD71E8253818F459 /* ContactsManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82AF6036135FCB4A45AC42BB /* ContactsManagerView.swift */; };
 		D416EF74D707B8AB429D28D3 /* ClaudeProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC51E4B296F91040E3DF8FA5 /* ClaudeProvider.swift */; };
 		D5C4051A26A116F729A46162 /* OpenAI in Frameworks */ = {isa = PBXBuildFile; productRef = BF256FDC9B4E73F0E97A73F4 /* OpenAI */; };
+		D80DDC51E11B8ABE5BBF260E /* TagPickerSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52F4DD4845B77144D49186B2 /* TagPickerSection.swift */; };
 		DAE12108EF9C2F1794CF496F /* WebViewSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22C7A0E325A9396DC82D2490 /* WebViewSource.swift */; };
 		DB52591027F4F5A119D3FB02 /* AIPermissionsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FFF3711E5A23143CE401ED3 /* AIPermissionsPanel.swift */; };
 		DDAEB46E70AB34FE76200ABC /* OAuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2206627A32226C73DB3CF921 /* OAuthManager.swift */; };
@@ -161,6 +163,7 @@
 		46087C86E554EAC8E701DBC2 /* TaggingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaggingTests.swift; sourceTree = "<group>"; };
 		467ED9F57E44AEFF8A8D5114 /* FeedSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedSyncService.swift; sourceTree = "<group>"; };
 		5161F202079E09DF97F26EC9 /* PreviewData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewData.swift; sourceTree = "<group>"; };
+		52F4DD4845B77144D49186B2 /* TagPickerSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagPickerSection.swift; sourceTree = "<group>"; };
 		549778CD0EBBDEFF56F95CCD /* CalendarSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSource.swift; sourceTree = "<group>"; };
 		56B39D3B4E08584432385161 /* SavedLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedLink.swift; sourceTree = "<group>"; };
 		5842DF67FFF7905836D465A6 /* EmailItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailItem.swift; sourceTree = "<group>"; };
@@ -478,6 +481,7 @@
 				DC2F6FC490FC8D02026814DE /* RulesEditorView.swift */,
 				651011FD29D78785D4B4F0B2 /* SidebarNoteView.swift */,
 				26947BC82D877B6965DF8331 /* TagBrowserView.swift */,
+				52F4DD4845B77144D49186B2 /* TagPickerSection.swift */,
 				8EC7F09C9A31C6F72921931B /* VoiceReplyView.swift */,
 				01466196F0708E405588B148 /* WebViewTabView.swift */,
 			);
@@ -716,6 +720,7 @@
 				CECDA39966C96C01966892EE /* SidebarNoteView.swift in Sources */,
 				712CE7146C93290661E94E56 /* Tag.swift in Sources */,
 				4A6AAE5897B1BAE125CD1614 /* TagBrowserView.swift in Sources */,
+				C6B0C574182401A994A4252D /* TagPickerSection.swift in Sources */,
 				8E8C58B1D438F43FE55EF572 /* TaggingService.swift in Sources */,
 				5A85BBAF3467AE63E6199A63 /* TodoItem.swift in Sources */,
 				C41F0CD924006A189FB4C9F7 /* VoiceReplyView.swift in Sources */,
@@ -777,6 +782,7 @@
 				61B3A9EA67499C9E10FCD115 /* SidebarNoteView.swift in Sources */,
 				00BF07ADDC9C683292F6D51F /* Tag.swift in Sources */,
 				0919C0EFA43A8AEE61F077B3 /* TagBrowserView.swift in Sources */,
+				D80DDC51E11B8ABE5BBF260E /* TagPickerSection.swift in Sources */,
 				8F9A2EE53D797DC7A38FBAF9 /* TaggingService.swift in Sources */,
 				A517ED7697E0C25D6088A505 /* TodoItem.swift in Sources */,
 				F73329903C4FC18F7F81DB25 /* VoiceReplyView.swift in Sources */,

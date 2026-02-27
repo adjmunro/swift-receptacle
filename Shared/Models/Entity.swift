@@ -26,6 +26,8 @@ final class Entity {
     /// Desired refresh cadence for feed entities, in minutes. Stored so the sync
     /// scheduler can respect per-feed intervals. Default: 60 (hourly).
     var feedRefreshIntervalMinutes: Int = 60
+    /// Tag IDs applied to this entity (e.g. to categorise a feed subscription).
+    var tagIds: [String] = []
 
     init(
         displayName: String,

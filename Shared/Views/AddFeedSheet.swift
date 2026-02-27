@@ -16,9 +16,11 @@ import Receptacle
 struct AddFeedSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Query(sort: \Tag.name) private var allTags: [Tag]
 
     @State private var urlString = ""
     @State private var nameOverride = ""
+    @State private var selectedTagIds: [String] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
 
@@ -65,6 +67,8 @@ struct AddFeedSheet: View {
                 } footer: {
                     Text("Left blank, the feed's own title element is used.")
                 }
+
+                TagPickerSection(tagIds: $selectedTagIds, allTags: allTags)
             }
             .formStyle(.grouped)
             .navigationTitle("Add Feed")
@@ -140,6 +144,7 @@ struct AddFeedSheet: View {
             contactIds: [contact.id.uuidString],
             retentionPolicy: .keepLatest(50)
         )
+        entity.tagIds = selectedTagIds
         modelContext.insert(contact)
         modelContext.insert(entity)
         try? modelContext.save()

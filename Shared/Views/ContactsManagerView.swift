@@ -238,6 +238,7 @@ struct ContactDetailView: View {
 /// refresh cadence, retention policy, and priority.
 private struct FeedSettingsSection: View {
     @Bindable var entity: Entity
+    @Query(sort: \Tag.name) private var allTags: [Tag]
 
     @State private var retentionKind: RetentionKind = .keepLatest
     @State private var retentionCount: Int = 50
@@ -285,6 +286,8 @@ private struct FeedSettingsSection: View {
                 Text("Critical").tag(ImportanceLevel.critical)
             }
         }
+
+        TagPickerSection(tagIds: $entity.tagIds, allTags: allTags)
         .onAppear {
             retentionKind  = RetentionKind(from: entity.retentionPolicy)
             retentionCount = entity.retentionPolicy.associatedCount

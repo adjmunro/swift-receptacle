@@ -11,6 +11,8 @@ import Receptacle
 /// presents as "Edit Feed" for feed-type contacts.
 struct FeedsManagerView: View {
     @Query(sort: \Contact.displayName) private var allContacts: [Contact]
+    @Query private var allEntities: [Entity]
+    @Query(sort: \Tag.name) private var allTags: [Tag]
     @Environment(\.dismiss) private var dismiss
     @State private var searchText = ""
     @State private var selectedFeed: Contact?
@@ -26,8 +28,12 @@ struct FeedsManagerView: View {
 
     var body: some View {
         List(feeds, selection: $selectedFeed) { feed in
-            FeedRowView(contact: feed)
-                .tag(feed)
+            FeedRowView(
+                contact: feed,
+                entity: allEntities.first { $0.contactIds.contains(feed.id.uuidString) },
+                allTags: allTags
+            )
+            .tag(feed)
         }
         .searchable(text: $searchText)
         .navigationTitle("Feeds")
@@ -66,6 +72,8 @@ struct FeedsManagerView: View {
 
 private struct FeedRowView: View {
     let contact: Contact
+    let entity: Entity?
+    let allTags: [Tag]
 
     /// Best short label for the feed source — prefer the URL host,
     /// fall back to the raw URL string if parsing fails.
@@ -75,14 +83,42 @@ private struct FeedRowView: View {
         return URL(string: urlStr)?.host ?? urlStr
     }
 
+    private var entityTags: [Tag] {
+        guard let entity else { return [] }
+        return allTags
+            .filter { entity.tagIds.contains($0.id.uuidString) }
+            .sorted { $0.name < $1.name }
+    }
+
     var body: some View {
-        HStack {
+        HStack(alignment: .top, spacing: 10) {
             Image(systemName: "dot.radiowaves.up.forward")
                 .foregroundStyle(.secondary)
+                .padding(.top, 2)
+
             VStack(alignment: .leading, spacing: 2) {
                 Text(contact.displayName)
                 if !sourceLabel.isEmpty {
                     Text(sourceLabel)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
+
+            if let entity {
+                VStack(alignment: .trailing, spacing: 4) {
+                    // Tags — top right
+                    if !entityTags.isEmpty {
+                        HStack(spacing: 4) {
+                            ForEach(entityTags) { tag in
+                                TagChip(name: tag.name)
+                            }
+                        }
+                    }
+                    // Retention policy — bottom right
+                    Text(entity.retentionPolicy.displayName)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
