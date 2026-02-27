@@ -62,15 +62,19 @@ struct ContentView: View {
 struct SettingsView: View {
     var body: some View {
         TabView {
+            AccountsSettingsView()
+                .tabItem { Label("Accounts", systemImage: "envelope.stack") }
+
             AIPermissionsPanel()
                 .tabItem { Label("AI", systemImage: "brain") }
+
             // RulesEditorView is per-entity — accessed from the entity list, not global settings.
             Text("Select an entity from the Inbox sidebar to edit its rules.")
                 .foregroundStyle(.secondary)
                 .padding()
                 .tabItem { Label("Rules", systemImage: "slider.horizontal.3") }
         }
-        .frame(width: 540, height: 440)
+        .frame(width: 540, height: 520)
     }
 }
 #endif

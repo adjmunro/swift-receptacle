@@ -39,7 +39,7 @@ struct AIPermissionsPanel: View {
                 }
             }
         }
-        .navigationTitle("AI Permissions")
+        .formStyle(.grouped)
     }
 }
 

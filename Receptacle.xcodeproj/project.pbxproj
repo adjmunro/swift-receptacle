@@ -19,6 +19,7 @@
 		15983740EA6021CB5FD9B6F4 /* PrivacyPolicySummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21F8ABE37D85F55D92D5E53 /* PrivacyPolicySummaryView.swift */; };
 		173D9DD8E57CF2286E7DA6A2 /* Receptacle in Frameworks */ = {isa = PBXBuildFile; productRef = 97136B4973A8E15469B2A1FC /* Receptacle */; };
 		179DBCDCA1292BEAE267ACF7 /* VoiceReplyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCD16BF1F7967721AE73D10A /* VoiceReplyTests.swift */; };
+		18D87703EDA58F74EA97A3F1 /* AccountsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBA16B21CD3BB86337B8EFC7 /* AccountsSettingsView.swift */; };
 		1E733DBEEF290DE7556D5260 /* KanbanBoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A98CA5643BDDE821775BD85F /* KanbanBoardView.swift */; };
 		25805D41383482F988123FEC /* ReceptacleApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5F470FC91E3B1B13019E260 /* ReceptacleApp.swift */; };
 		28B30570C41CF644BF151299 /* SavedLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56B39D3B4E08584432385161 /* SavedLink.swift */; };
@@ -36,6 +37,7 @@
 		48891AF7F1B7996822A6AC9C /* PostCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 686BA724442CD977DA7F8393 /* PostCardView.swift */; };
 		48AFA7696E4989E02E40745B /* ReceptacleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70AE5DCD02280025C74713F0 /* ReceptacleTests.swift */; };
 		4A6AAE5897B1BAE125CD1614 /* TagBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26947BC82D877B6965DF8331 /* TagBrowserView.swift */; };
+		50055545A9CDAD729F57EA5A /* AccountsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBA16B21CD3BB86337B8EFC7 /* AccountsSettingsView.swift */; };
 		5051D4D6DED775336B185D6A /* PostFeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5C5F0C767536F190B600F32 /* PostFeedView.swift */; };
 		5212CD743BD51D6FD3D05447 /* KanbanBoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A98CA5643BDDE821775BD85F /* KanbanBoardView.swift */; };
 		5527FF9414D64A70136C73A2 /* WhisperProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = E664725B5ACD55DC4844BBCD /* WhisperProvider.swift */; };
@@ -175,6 +177,7 @@
 		E664725B5ACD55DC4844BBCD /* WhisperProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhisperProvider.swift; sourceTree = "<group>"; };
 		E7768981D9295E983DB8A0FC /* IMAPSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IMAPSource.swift; sourceTree = "<group>"; };
 		EB4A7DF48A5FAA24894E00FB /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
+		EBA16B21CD3BB86337B8EFC7 /* AccountsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountsSettingsView.swift; sourceTree = "<group>"; };
 		ECB717E02E233916FD7AEECD /* AttachmentMatcherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentMatcherTests.swift; sourceTree = "<group>"; };
 		F01508FB60CC7B2DB308EFE3 /* FeedSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedSource.swift; sourceTree = "<group>"; };
 		F039BD5CCB132E3B81FE23F3 /* HTMLBodyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTMLBodyView.swift; sourceTree = "<group>"; };
@@ -404,6 +407,7 @@
 			isa = PBXGroup;
 			children = (
 				D4C5A3D2F2845911BC958C2A /* AccountSetupView.swift */,
+				EBA16B21CD3BB86337B8EFC7 /* AccountsSettingsView.swift */,
 				6FFF3711E5A23143CE401ED3 /* AIPermissionsPanel.swift */,
 				7B1253EA1530E06760F11E5B /* CalendarEventCreatorView.swift */,
 				82AF6036135FCB4A45AC42BB /* ContactsManagerView.swift */,
@@ -590,6 +594,7 @@
 				5F0382F6A1C25002E91F0610 /* AIPermissionsPanel.swift in Sources */,
 				630065C28DA6FA0BA9219473 /* AIProvider.swift in Sources */,
 				0B13F12503763FF076344CA4 /* AccountSetupView.swift in Sources */,
+				18D87703EDA58F74EA97A3F1 /* AccountsSettingsView.swift in Sources */,
 				02D4714DB953373C9A2669FA /* AttachmentSaver.swift in Sources */,
 				306E0DE50D3CDB99CDE2FCED /* CalendarEventCreatorView.swift in Sources */,
 				5E0265714D6546A138227BEB /* CalendarSource.swift in Sources */,
@@ -647,6 +652,7 @@
 				DB52591027F4F5A119D3FB02 /* AIPermissionsPanel.swift in Sources */,
 				0306EE2CE4CE997A3CE08947 /* AIProvider.swift in Sources */,
 				CB5995EA37C24A0B1F27AE3B /* AccountSetupView.swift in Sources */,
+				50055545A9CDAD729F57EA5A /* AccountsSettingsView.swift in Sources */,
 				B42F2EFCD56B12F70EE3D1CE /* AttachmentSaver.swift in Sources */,
 				F883D0B60EAE2FD25E7D4081 /* CalendarEventCreatorView.swift in Sources */,
 				6E52B363809F9BBAA2750FDE /* CalendarSource.swift in Sources */,
