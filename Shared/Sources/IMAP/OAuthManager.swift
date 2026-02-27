@@ -1,10 +1,11 @@
 import Foundation
+import GoogleSignIn
 
 // MARK: - OAuth Provider
 
 public enum OAuthProvider: String, Sendable {
     case google     // Gmail — GoogleSignIn-iOS SDK
-    case microsoft  // Outlook/Exchange — MSAL
+    case microsoft  // Outlook/Exchange — MSAL (Phase 4)
 }
 
 // MARK: - OAuthManager
@@ -12,71 +13,119 @@ public enum OAuthProvider: String, Sendable {
 /// Manages OAuth2 tokens for Gmail and Outlook IMAP authentication.
 ///
 /// Tokens are stored in the Keychain via `KeychainHelper` — never in
-/// UserDefaults or on disk.
+/// UserDefaults or on disk. An in-memory cache avoids repeated Keychain reads.
 ///
-/// ## GoogleSignIn-iOS integration (Phase 4 — requires Xcode):
+/// ## Gmail setup (one-time, before first sign-in):
+/// 1. Create a project at console.cloud.google.com
+/// 2. Enable the Gmail API
+/// 3. Create OAuth 2.0 credentials (type: "Desktop app") → get a Client ID
+/// 4. In Xcode → ReceptacleApp target → Build Settings → User-Defined, set:
+///    `GOOGLE_REVERSED_CLIENT_ID` = `com.googleusercontent.apps.<your-id-suffix>`
+///    (i.e. reverse the client ID: `12345-abc.apps.googleusercontent.com`
+///     → `com.googleusercontent.apps.12345-abc`)
+/// 5. When adding a Gmail account in Settings, enter the Client ID
+///    (e.g. `12345-abc.apps.googleusercontent.com`)
+///
+/// ## Sign-in flow (automatic):
 /// ```swift
-/// // In your App/@UIApplicationDelegateAdaptor, call:
-/// GIDSignIn.sharedInstance.handle(openURL)
-///
-/// // To sign in:
-/// let result = try await GIDSignIn.sharedInstance.signIn(
-///     withPresenting: rootViewController,
-///     hint: username,
-///     additionalScopes: ["https://mail.google.com/"]
-/// )
-/// // result.user.accessToken.tokenString → Bearer token for IMAP XOAUTH2
-/// // Cache in Keychain: KeychainHelper.save(token, account: key)
-///
-/// // To refresh silently:
-/// let user = try await GIDSignIn.sharedInstance.restorePreviousSignIn()
-/// let refreshed = try await user.refreshTokensIfNeeded()
-/// // refreshed.accessToken.tokenString → refreshed Bearer token
-/// ```
-///
-/// ## MSAL integration (Phase 4 — requires Xcode):
-/// ```swift
-/// let config = MSALPublicClientApplicationConfig(
-///     clientId: "<your-azure-client-id>",
-///     redirectUri: "msauth.<bundle-id>://auth",
-///     authority: try MSALAADAuthority(url: URL(string:
-///         "https://login.microsoftonline.com/common")!)
-/// )
-/// let app = try MSALPublicClientApplication(configuration: config)
-///
-/// // Interactive sign-in:
-/// let params = MSALInteractiveTokenParameters(
-///     scopes: ["https://outlook.office.com/IMAP.AccessAsUser.All",
-///              "offline_access"],
-///     webviewParameters: MSALWebviewParameters(authPresentationViewController: vc)
-/// )
-/// let result = try await app.acquireToken(with: params)
-/// // result.accessToken → Bearer token for IMAP XOAUTH2
-///
-/// // Silent refresh:
-/// let silentParams = MSALSilentTokenParameters(
-///     scopes: params.scopes,
-///     account: savedAccount
-/// )
-/// let refreshed = try await app.acquireTokenSilent(with: silentParams)
+/// await OAuthManager.shared.configure(googleClientId: "YOUR_CLIENT_ID")
+/// let email = try await OAuthManager.shared.signIn(provider: .google, accountId: id)
 /// ```
 public actor OAuthManager {
     public static let shared = OAuthManager()
 
-    // Cache of valid access tokens (accountId → token)
-    // Persisted to Keychain; in-memory cache avoids repeated Keychain reads.
+    /// In-memory token cache — avoids repeated Keychain reads.
+    /// Key: `"<provider>:<accountId>"`
     private var tokenCache: [String: CachedToken] = [:]
 
     private init() {}
 
-    // MARK: - Token retrieval
+    // MARK: - Configuration
 
-    /// Returns a valid Bearer token for IMAP XOAUTH2, refreshing silently if needed.
+    /// Configure the Google Sign-In SDK with the given client ID.
     ///
-    /// Throws `OAuthError.notAuthenticated` until Phase 4 GoogleSignIn/MSAL
-    /// SDK integration is wired in Xcode.
-    public func accessToken(for provider: OAuthProvider,
-                            accountId: String) async throws -> String {
+    /// Call on app startup if a client ID was previously saved, and again
+    /// each time the user enters a new client ID.
+    public func configure(googleClientId: String) {
+        // Persist so we can restore on next launch
+        UserDefaults.standard.set(googleClientId, forKey: "google.oauth.clientId")
+        Task { @MainActor in
+            GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: googleClientId)
+        }
+    }
+
+    // MARK: - Interactive sign-in
+
+    /// Initiates the interactive OAuth2 sign-in flow and returns the signed-in email.
+    ///
+    /// For Google (macOS): presents `ASWebAuthenticationSession` via the key window.
+    /// Stores the access token in Keychain and the in-memory cache.
+    ///
+    /// - Returns: The email address of the signed-in Google account.
+    /// - Throws: `OAuthError.userCancelled` if the user dismisses the browser,
+    ///           `OAuthError.noPresentingVC` if there is no key window.
+    public func signIn(
+        provider: OAuthProvider,
+        accountId: String,
+        hint: String? = nil
+    ) async throws -> String {
+        switch provider {
+
+        case .google:
+#if os(macOS)
+            let result = try await withCheckedThrowingContinuation {
+                (cont: CheckedContinuation<(token: String, expiry: Date, email: String), Error>) in
+                Task { @MainActor in
+                    guard let window = NSApplication.shared.keyWindow
+                            ?? NSApplication.shared.windows.first(where: \.isVisible) else {
+                        cont.resume(throwing: OAuthError.noPresentingVC)
+                        return
+                    }
+                    GIDSignIn.sharedInstance.signIn(
+                        withPresenting: window,
+                        hint: hint,
+                        additionalScopes: ["https://mail.google.com/"]
+                    ) { signInResult, error in
+                        if let error {
+                            let code = (error as NSError).code
+                            // GIDSignInErrorCodeCanceled = -5
+                            cont.resume(throwing: code == -5
+                                ? OAuthError.userCancelled
+                                : OAuthError.tokenRefreshFailed(reason: error.localizedDescription))
+                            return
+                        }
+                        guard let signInResult else {
+                            cont.resume(throwing: OAuthError.notAuthenticated)
+                            return
+                        }
+                        cont.resume(returning: (
+                            token: signInResult.user.accessToken.tokenString,
+                            expiry: signInResult.user.accessToken.expirationDate
+                                ?? Date().addingTimeInterval(3600),
+                            email: signInResult.user.profile?.email ?? ""
+                        ))
+                    }
+                }
+            }
+            let cacheKey = "google:\(accountId)"
+            tokenCache[cacheKey] = CachedToken(token: result.token, expiresAt: result.expiry)
+            try KeychainHelper.save(result.token,
+                account: KeychainHelper.oauthTokenKey(accountId: accountId, provider: "google"))
+            return result.email
+#else
+            throw OAuthError.noPresentingVC
+#endif
+
+        case .microsoft:
+            // MSAL integration — Phase 4
+            throw OAuthError.notAuthenticated
+        }
+    }
+
+    // MARK: - Token retrieval (silent refresh)
+
+    /// Returns a valid Bearer token for IMAP XOAUTH2, refreshing silently if expired.
+    public func accessToken(for provider: OAuthProvider, accountId: String) async throws -> String {
         let cacheKey = "\(provider.rawValue):\(accountId)"
 
         // Return cached token if still valid (>60s margin)
@@ -85,80 +134,70 @@ public actor OAuthManager {
         }
 
         switch provider {
+
         case .google:
-            // Phase 4 implementation — uncomment when GoogleSignIn-iOS is linked:
-            //
-            // let user = try await GIDSignIn.sharedInstance.restorePreviousSignIn()
-            // let refreshed = try await user.refreshTokensIfNeeded()
-            // let token = refreshed.accessToken.tokenString
-            // let expiry = refreshed.accessToken.expirationDate ?? Date().addingTimeInterval(3600)
-            // tokenCache[cacheKey] = CachedToken(token: token, expiresAt: expiry)
-            // try KeychainHelper.save(token,
-            //     account: KeychainHelper.oauthTokenKey(accountId: accountId, provider: "google"))
-            // return token
+#if os(macOS)
+            let (token, expiry) = try await withCheckedThrowingContinuation {
+                (cont: CheckedContinuation<(String, Date), Error>) in
+                Task { @MainActor in
+                    // Helper — refresh an already-resolved GIDGoogleUser
+                    func refresh(_ user: GIDGoogleUser) {
+                        user.refreshTokensIfNeeded { refreshed, error in
+                            if let error {
+                                cont.resume(throwing: OAuthError.tokenRefreshFailed(
+                                    reason: error.localizedDescription))
+                                return
+                            }
+                            guard let refreshed else {
+                                cont.resume(throwing: OAuthError.notAuthenticated)
+                                return
+                            }
+                            cont.resume(returning: (
+                                refreshed.accessToken.tokenString,
+                                refreshed.accessToken.expirationDate ?? Date().addingTimeInterval(3600)
+                            ))
+                        }
+                    }
+
+                    if let user = GIDSignIn.sharedInstance.currentUser {
+                        refresh(user)
+                    } else {
+                        // Try to restore from GIDSignIn's Keychain store
+                        GIDSignIn.sharedInstance.restorePreviousSignIn { user, error in
+                            if let error {
+                                cont.resume(throwing: OAuthError.tokenRefreshFailed(
+                                    reason: error.localizedDescription))
+                                return
+                            }
+                            guard let user else {
+                                cont.resume(throwing: OAuthError.notAuthenticated)
+                                return
+                            }
+                            refresh(user)
+                        }
+                    }
+                }
+            }
+            tokenCache[cacheKey] = CachedToken(token: token, expiresAt: expiry)
+            try KeychainHelper.save(token,
+                account: KeychainHelper.oauthTokenKey(accountId: accountId, provider: "google"))
+            return token
+#else
             throw OAuthError.notAuthenticated
+#endif
 
         case .microsoft:
-            // Phase 4 implementation — uncomment when MSAL is linked:
-            //
-            // let app = try msalApp()
-            // guard let account = try app.allAccounts().first(where: { $0.identifier == accountId }) else {
-            //     throw OAuthError.notAuthenticated
-            // }
-            // let params = MSALSilentTokenParameters(
-            //     scopes: ["https://outlook.office.com/IMAP.AccessAsUser.All", "offline_access"],
-            //     account: account
-            // )
-            // let result = try await app.acquireTokenSilent(with: params)
-            // let expiry = result.expiresOn ?? Date().addingTimeInterval(3600)
-            // tokenCache[cacheKey] = CachedToken(token: result.accessToken, expiresAt: expiry)
-            // try KeychainHelper.save(result.accessToken,
-            //     account: KeychainHelper.oauthTokenKey(accountId: accountId, provider: "microsoft"))
-            // return result.accessToken
-            throw OAuthError.notAuthenticated
-        }
-    }
-
-    // MARK: - Sign-in (interactive, must be called from MainActor)
-
-    /// Initiates the interactive sign-in flow.
-    ///
-    /// Must be called from the main actor (presents a web sheet).
-    @MainActor
-    public func signIn(provider: OAuthProvider,
-                       accountId: String) async throws {
-        switch provider {
-        case .google:
-            // Phase 4:
-            // guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-            //       let vc = scene.windows.first?.rootViewController else { throw OAuthError.noPresentingVC }
-            // let result = try await GIDSignIn.sharedInstance.signIn(
-            //     withPresenting: vc,
-            //     additionalScopes: ["https://mail.google.com/"]
-            // )
-            // store result in tokenCache + Keychain
-            throw OAuthError.notAuthenticated
-
-        case .microsoft:
-            // Phase 4:
-            // let app = try msalApp()
-            // let params = MSALInteractiveTokenParameters(
-            //     scopes: ["https://outlook.office.com/IMAP.AccessAsUser.All", "offline_access"],
-            //     webviewParameters: ...
-            // )
-            // let result = try await app.acquireToken(with: params)
-            // store result in tokenCache + Keychain
             throw OAuthError.notAuthenticated
         }
     }
 
     // MARK: - Sign-out
 
+    /// Signs out of the given provider and clears all cached / Keychain tokens.
     public func signOut(provider: OAuthProvider, accountId: String) throws {
         let cacheKey = "\(provider.rawValue):\(accountId)"
         tokenCache.removeValue(forKey: cacheKey)
 
-        // Clear both access and refresh tokens from Keychain
         try KeychainHelper.delete(
             account: KeychainHelper.oauthTokenKey(accountId: accountId,
                                                    provider: provider.rawValue))
@@ -166,26 +205,15 @@ public actor OAuthManager {
             account: KeychainHelper.oauthRefreshKey(accountId: accountId,
                                                      provider: provider.rawValue))
 
-        // Phase 4: also call SDK sign-out
-        // switch provider {
-        // case .google:
-        //     GIDSignIn.sharedInstance.signOut()
-        // case .microsoft:
-        //     let app = try msalApp()
-        //     try app.allAccounts().forEach { try app.remove($0) }
-        // }
+        switch provider {
+        case .google:
+            Task { @MainActor in
+                GIDSignIn.sharedInstance.signOut()
+            }
+        case .microsoft:
+            break
+        }
     }
-
-    // MARK: - Private helpers
-
-    // private func msalApp() throws -> MSALPublicClientApplication {
-    //     let config = MSALPublicClientApplicationConfig(
-    //         clientId: "<your-azure-client-id>",
-    //         redirectUri: "msauth.\(Bundle.main.bundleIdentifier ?? "")://auth",
-    //         authority: try MSALAADAuthority(url: URL(string: "https://login.microsoftonline.com/common")!)
-    //     )
-    //     return try MSALPublicClientApplication(configuration: config)
-    // }
 }
 
 // MARK: - CachedToken
@@ -195,9 +223,7 @@ private struct CachedToken: Sendable {
     let expiresAt: Date
 
     /// True if the token has more than 60 seconds of validity remaining.
-    var isValid: Bool {
-        expiresAt.timeIntervalSinceNow > 60
-    }
+    var isValid: Bool { expiresAt.timeIntervalSinceNow > 60 }
 }
 
 // MARK: - OAuthError

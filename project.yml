@@ -9,10 +9,14 @@ options:
   createIntermediateGroups: true
   defaultConfig: Debug
 
-# Local SPM package — provides ReceptacleCore types to all app targets.
 packages:
+  # Local SPM package — provides ReceptacleCore types to all app targets.
   Receptacle:
     path: .
+  # Google Sign-In SDK — used by OAuthManager for Gmail OAuth2 (Phase 4).
+  GoogleSignIn-iOS:
+    url: https://github.com/google/GoogleSignIn-iOS
+    from: "9.0.0"
 
 configs:
   Debug:   debug
@@ -30,6 +34,23 @@ targets:
     type: application
     platform: macOS
     deploymentTarget: "15.0"
+    # xcodegen generates macOS/Info.plist from the `info:` block below,
+    # sets INFOPLIST_FILE automatically, removes GENERATE_INFOPLIST_FILE.
+    info:
+      path: macOS/Info.plist
+      properties:
+        NSPrincipalClass: NSApplication
+        # URL scheme required for Google Sign-In OAuth2 callback.
+        # Set GOOGLE_REVERSED_CLIENT_ID in Xcode → Target → Build Settings
+        # (User-Defined) to your reversed client ID, e.g.:
+        #   com.googleusercontent.apps.123456789-abcdefghijklmnop
+        # Obtain your client ID at console.cloud.google.com →
+        # APIs & Services → Credentials → OAuth 2.0 Client IDs (Desktop app).
+        CFBundleURLTypes:
+          - CFBundleTypeRole: Editor
+            CFBundleURLName: $(GOOGLE_REVERSED_CLIENT_ID)
+            CFBundleURLSchemes:
+              - $(GOOGLE_REVERSED_CLIENT_ID)
     sources:
       - path: macOS
         createIntermediateGroups: true
@@ -38,19 +59,25 @@ targets:
     dependencies:
       - package: Receptacle
         product: Receptacle
+      - package: GoogleSignIn-iOS
+        product: GoogleSignIn
+      - package: GoogleSignIn-iOS
+        product: GoogleSignInSwift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.user.receptacle
         PRODUCT_NAME: Receptacle
         # Distinguish Swift module name from SPM package "Receptacle"
         PRODUCT_MODULE_NAME: ReceptacleApp
-        GENERATE_INFOPLIST_FILE: YES
         CURRENT_PROJECT_VERSION: 1
         MARKETING_VERSION: 0.1.0
         DEVELOPMENT_TEAM: ""
         CODE_SIGN_STYLE: Automatic
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_PREVIEWS: YES
+        # Reversed Google OAuth client ID for URL scheme registration.
+        # Override this in Xcode Build Settings with your actual reversed client ID.
+        GOOGLE_REVERSED_CLIENT_ID: com.receptacle.placeholder-google
       configs:
         Debug:
           PRODUCT_BUNDLE_IDENTIFIER: com.user.receptacle.debug
@@ -61,7 +88,6 @@ targets:
     scheme:
       testTargets:
         - ReceptacleTests
-      # macOS is the primary run target
       gatherCoverageData: false
 
   # ── iOS App ────────────────────────────────────────────────────────────────
@@ -77,6 +103,10 @@ targets:
     dependencies:
       - package: Receptacle
         product: Receptacle
+      - package: GoogleSignIn-iOS
+        product: GoogleSignIn
+      - package: GoogleSignIn-iOS
+        product: GoogleSignInSwift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.user.receptacle.ios

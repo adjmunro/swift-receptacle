@@ -4,12 +4,28 @@
 #if os(macOS)
 import SwiftUI
 import SwiftData
+import GoogleSignIn
 
 @main
 struct ReceptacleApp: App {
+
+    init() {
+        // Configure Google Sign-In SDK on launch if we have a saved client ID.
+        // The URL scheme (GOOGLE_REVERSED_CLIENT_ID) must be set in Build Settings
+        // and the reversed ID registered in macOS/Info.plist CFBundleURLSchemes.
+        if let clientId = UserDefaults.standard.string(forKey: "google.oauth.clientId"),
+           !clientId.isEmpty {
+            GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientId)
+        }
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                // Pass incoming URLs to GIDSignIn for the OAuth2 callback.
+                .onOpenURL { url in
+                    GIDSignIn.sharedInstance.handle(url)
+                }
         }
         .modelContainer(for: [
             Contact.self,

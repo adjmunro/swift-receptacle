@@ -7,8 +7,6 @@ import Receptacle
 ///
 /// Non-secret config (host, port, username) persists in UserDefaults as JSON.
 /// Passwords and OAuth tokens live in the Keychain via `KeychainHelper`.
-///
-/// OAuth2 sign-in for Gmail and Outlook will be wired in Phase 4.
 struct AccountsSettingsView: View {
     @State private var accounts: [IMAPAccountConfig] = []
     @State private var showingAdd = false
@@ -29,9 +27,11 @@ struct AccountsSettingsView: View {
                     }
                     .onDelete { offsets in
                         for index in offsets {
+                            let acct = accounts[index]
                             try? KeychainHelper.delete(
-                                account: KeychainHelper.passwordKey(accountId: accounts[index].accountId)
-                            )
+                                account: KeychainHelper.passwordKey(accountId: acct.accountId))
+                            Task { try? await OAuthManager.shared.signOut(
+                                provider: .google, accountId: acct.accountId) }
                         }
                         accounts.remove(atOffsets: offsets)
                         persist()
@@ -42,18 +42,14 @@ struct AccountsSettingsView: View {
 
             Divider()
 
-            // Bottom toolbar: + / - buttons (Finder-style)
+            // Finder-style bottom toolbar
             HStack(spacing: 0) {
-                Button {
-                    showingAdd = true
-                } label: {
-                    Image(systemName: "plus")
-                        .frame(width: 28, height: 28)
+                Button { showingAdd = true } label: {
+                    Image(systemName: "plus").frame(width: 28, height: 28)
                 }
                 .buttonStyle(.borderless)
                 .help("Add account")
                 .padding(.leading, 4)
-
                 Spacer()
             }
             .frame(height: 30)
@@ -96,11 +92,8 @@ struct AccountRowView: View {
                 .frame(width: 32)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(account.displayName)
-                    .font(.headline)
-                Text(account.username)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text(account.displayName).font(.headline)
+                Text(account.username).font(.caption).foregroundStyle(.secondary)
             }
 
             Spacer()
@@ -131,13 +124,24 @@ struct AddAccountSheet: View {
     @State private var providerType: IMAPProviderType = .iCloud
     @State private var displayName = ""
     @State private var username = ""
+
+    // Password-auth fields (iCloud, custom IMAP)
     @State private var password = ""
     @State private var customHost = ""
     @State private var customPort = "993"
     @State private var customTLS = true
 
+    // Gmail OAuth2 state
+    @State private var googleClientId = UserDefaults.standard.string(forKey: "google.oauth.clientId") ?? ""
+    @State private var isSigningIn = false
+    @State private var signedIn = false
+    @State private var signedInEmail = ""
+    @State private var pendingAccountId = ""
+    @State private var signInError: String? = nil
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // Header
             HStack {
                 Text("Add Email Account")
                     .font(.title2.weight(.semibold))
@@ -157,31 +161,21 @@ struct AddAccountSheet: View {
                         }
                     }
                     .pickerStyle(.segmented)
+                    .onChange(of: providerType) { _, _ in resetOAuthState() }
                 }
 
                 Section("Account") {
                     TextField("Account name", text: $displayName)
-                    TextField("Email address", text: $username)
-                        .textContentType(.emailAddress)
 
-                    if providerType.defaultAuthMethod == .password {
-                        SecureField(
-                            providerType == .iCloud ? "App-specific password" : "Password",
-                            text: $password
-                        )
-                        if providerType == .iCloud {
-                            Text("Generate at appleid.apple.com → Security → App-Specific Passwords.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    } else {
-                        // OAuth2 providers (Gmail, Outlook) — full flow wired in Phase 4
-                        Label(
-                            "OAuth2 sign-in for \(providerType.displayName) will be added in Phase 4.",
-                            systemImage: "info.circle"
-                        )
-                        .font(.caption)
-                        .foregroundStyle(.orange)
+                    switch providerType {
+                    case .gmail:
+                        gmailFields
+                    case .iCloud:
+                        iCloudFields
+                    case .outlook:
+                        outlookFields
+                    case .custom:
+                        customFields
                     }
                 }
 
@@ -195,6 +189,24 @@ struct AddAccountSheet: View {
             }
             .formStyle(.grouped)
 
+            // Error banner
+            if let err = signInError {
+                HStack {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                    Text(err)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                    Spacer()
+                    Button("Dismiss") { signInError = nil }
+                        .font(.caption)
+                        .buttonStyle(.borderless)
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 6)
+                .background(Color.red.opacity(0.08))
+            }
+
             Divider()
 
             HStack {
@@ -206,18 +218,119 @@ struct AddAccountSheet: View {
                     .padding(16)
             }
         }
-        .frame(width: 460, height: 420)
+        .frame(width: 480, height: providerType == .gmail ? 500 : 420)
     }
 
+    // MARK: - Provider-specific fields
+
+    @ViewBuilder
+    private var gmailFields: some View {
+        TextField("Email address (hint)", text: $username)
+            .textContentType(.emailAddress)
+
+        TextField("Google Client ID", text: $googleClientId)
+            .textContentType(.none)
+
+        // Inline instructions
+        VStack(alignment: .leading, spacing: 4) {
+            Text("How to get a Client ID:")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Text("1. Go to console.cloud.google.com")
+                .font(.caption).foregroundStyle(.secondary)
+            Text("2. APIs & Services → Credentials → Create OAuth 2.0 Client ID")
+                .font(.caption).foregroundStyle(.secondary)
+            Text("3. Choose \"Desktop app\"")
+                .font(.caption).foregroundStyle(.secondary)
+            Text("4. Also set GOOGLE_REVERSED_CLIENT_ID in Xcode Build Settings")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+        .padding(.top, 2)
+
+        // Sign-in button / status
+        if isSigningIn {
+            HStack {
+                ProgressView().controlSize(.small)
+                Text("Signing in with Google…").foregroundStyle(.secondary)
+            }
+        } else if signedIn {
+            Label(signedInEmail, systemImage: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+        } else {
+            Button {
+                Task { await performGoogleSignIn() }
+            } label: {
+                Label("Sign in with Google", systemImage: "globe")
+            }
+            .disabled(displayName.isEmpty || googleClientId.isEmpty)
+        }
+    }
+
+    @ViewBuilder
+    private var iCloudFields: some View {
+        TextField("Apple ID (e.g. you@icloud.com)", text: $username)
+            .textContentType(.emailAddress)
+        SecureField("App-specific password", text: $password)
+        Text("Generate at appleid.apple.com → Security → App-Specific Passwords.")
+            .font(.caption).foregroundStyle(.secondary)
+    }
+
+    @ViewBuilder
+    private var outlookFields: some View {
+        TextField("Email address", text: $username)
+            .textContentType(.emailAddress)
+        Label("Microsoft OAuth2 sign-in coming in Phase 4.", systemImage: "info.circle")
+            .font(.caption).foregroundStyle(.orange)
+    }
+
+    @ViewBuilder
+    private var customFields: some View {
+        TextField("Email / Username", text: $username)
+            .textContentType(.emailAddress)
+        SecureField("Password", text: $password)
+    }
+
+    // MARK: - Validation
+
     private var canAdd: Bool {
-        !displayName.isEmpty
-            && !username.isEmpty
-            && (providerType.defaultAuthMethod == .oauth2 || !password.isEmpty)
-            && (providerType != .custom || !customHost.isEmpty)
+        guard !displayName.isEmpty else { return false }
+        switch providerType {
+        case .gmail:   return signedIn
+        case .iCloud:  return !username.isEmpty && !password.isEmpty
+        case .outlook: return false  // OAuth2 not yet implemented
+        case .custom:  return !username.isEmpty && !password.isEmpty && !customHost.isEmpty
+        }
+    }
+
+    // MARK: - Actions
+
+    @MainActor
+    private func performGoogleSignIn() async {
+        isSigningIn = true
+        signInError = nil
+        let tempId = UUID().uuidString
+        do {
+            await OAuthManager.shared.configure(googleClientId: googleClientId)
+            let email = try await OAuthManager.shared.signIn(
+                provider: .google,
+                accountId: tempId,
+                hint: username.isEmpty ? nil : username
+            )
+            signedInEmail = email
+            if username.isEmpty { username = email }
+            pendingAccountId = tempId
+            signedIn = true
+        } catch OAuthError.userCancelled {
+            // No error — user just dismissed the browser
+        } catch {
+            signInError = error.localizedDescription
+        }
+        isSigningIn = false
     }
 
     private func addAccount() {
-        let id = UUID().uuidString
+        let id = pendingAccountId.isEmpty ? UUID().uuidString : pendingAccountId
+        let finalUsername = signedIn ? signedInEmail : username
         let config = IMAPAccountConfig(
             accountId: id,
             displayName: displayName,
@@ -225,12 +338,20 @@ struct AddAccountSheet: View {
             host: providerType == .custom && !customHost.isEmpty ? customHost : nil,
             port: providerType == .custom ? Int(customPort) : nil,
             useTLS: providerType == .custom ? customTLS : nil,
-            username: username
+            username: finalUsername
         )
         if !password.isEmpty {
-            try? KeychainHelper.save(password, account: KeychainHelper.passwordKey(accountId: id))
+            try? KeychainHelper.save(password,
+                account: KeychainHelper.passwordKey(accountId: id))
         }
         onAdd(config)
         dismiss()
+    }
+
+    private func resetOAuthState() {
+        signedIn = false
+        signedInEmail = ""
+        pendingAccountId = ""
+        signInError = nil
     }
 }
