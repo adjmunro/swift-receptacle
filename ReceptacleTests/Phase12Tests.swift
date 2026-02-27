@@ -1,7 +1,10 @@
 // Phase12Tests.swift
-// CLI-compatible: only `import Testing` (no Foundation).
-// Run via: swift test  (or open in Xcode for full output)
+//
+// IMPORTANT: Excluded from Package.swift CLI build — uses `import Foundation`
+// alongside `import Testing`, triggering the _Testing_Foundation overlay which
+// has no .swiftmodule in CLI tools. Open in Xcode to run.
 
+import Foundation
 import Testing
 import Receptacle
 

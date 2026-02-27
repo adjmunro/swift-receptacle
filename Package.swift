@@ -74,7 +74,7 @@ let package = Package(
             // .swiftmodule is binary-only in CLI tools (no Swift interface — build error).
             // Excluded here; open in Xcode to run those tests.
             exclude: ["RuleEngineTests.swift", "IMAPSourceTests.swift", "FeedSourceTests.swift",
-                      "AttachmentSaverTests.swift", "Fixtures"],
+                      "AttachmentSaverTests.swift", "Phase12Tests.swift", "Fixtures"],
             // Testing.framework lives in the CLI tools Frameworks dir, not the default search path.
             // These flags are only needed when building with CLI tools; Xcode finds it automatically.
             swiftSettings: [
