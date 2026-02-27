@@ -20,6 +20,7 @@ struct PostCardView: View {
     var onReply: (() -> Void)? = nil
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.openURL) private var openURL
 
     @State private var isExpanded: Bool = true
     @State private var showQuoted: Bool = false
@@ -163,6 +164,18 @@ struct PostCardView: View {
     private var actionBar: some View {
         HStack(spacing: 16) {
             Spacer()
+
+            // Open link — only for feed items with a URL
+            if let linkStr = item.linkURLString, let url = URL(string: linkStr) {
+                Button {
+                    openURL(url)
+                } label: {
+                    Label("Open", systemImage: "arrow.up.right.square")
+                        .font(.caption)
+                }
+                .buttonStyle(.borderless)
+                .help("Open article in browser")
+            }
 
             // Reply — only for items with a reply-to address (email)
             if let replyTo = item.replyToAddress {

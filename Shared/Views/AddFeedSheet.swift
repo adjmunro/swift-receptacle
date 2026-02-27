@@ -32,14 +32,21 @@ struct AddFeedSheet: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("https://example.com/feed.xml", text: $urlString)
-                        .autocorrectionDisabled()
+                    // "Feed URL" is the left-column label on macOS Form.
+                    // The `prompt:` argument renders as placeholder text inside the field.
+                    TextField(
+                        "Feed URL",
+                        text: $urlString,
+                        prompt: Text("https://example.com/feed.xml")
+                    )
+                    .autocorrectionDisabled()
 #if os(iOS)
-                        .keyboardType(.URL)
-                        .textInputAutocapitalization(.never)
+                    .keyboardType(.URL)
+                    .textInputAutocapitalization(.never)
 #endif
+
                     if let error = errorMessage {
-                        Text(error)
+                        Label(error, systemImage: "exclamationmark.triangle.fill")
                             .font(.caption)
                             .foregroundStyle(.red)
                     }
@@ -48,14 +55,22 @@ struct AddFeedSheet: View {
                 }
 
                 Section {
-                    TextField("Optional", text: $nameOverride)
+                    TextField(
+                        "Name",
+                        text: $nameOverride,
+                        prompt: Text("Auto-filled from feed title")
+                    )
                 } header: {
-                    Text("Name")
+                    Text("Name (optional)")
                 } footer: {
-                    Text("Fetched from feed title if blank.")
+                    Text("Left blank, the feed's own title element is used.")
                 }
             }
+            .formStyle(.grouped)
             .navigationTitle("Add Feed")
+#if os(macOS)
+            .navigationSubtitle("RSS · Atom · JSON Feed")
+#endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -63,6 +78,7 @@ struct AddFeedSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     if isLoading {
                         ProgressView()
+                            .controlSize(.small)
                     } else {
                         Button("Add") {
                             Task { await addFeed() }
@@ -72,6 +88,11 @@ struct AddFeedSheet: View {
                 }
             }
         }
+        // Prevents accidental close while the network fetch is in flight.
+        .interactiveDismissDisabled(isLoading)
+#if os(macOS)
+        .frame(minWidth: 400, idealWidth: 440, minHeight: 280)
+#endif
     }
 
     // MARK: Add

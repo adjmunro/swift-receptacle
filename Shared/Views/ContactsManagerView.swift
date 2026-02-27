@@ -6,6 +6,7 @@ import Receptacle
 /// and the linked Entity (importance, tone, retention).
 struct ContactsManagerView: View {
     @Query(sort: \Contact.displayName) private var contacts: [Contact]
+    @Environment(\.dismiss) private var dismiss
     @State private var searchText = ""
     @State private var selectedContact: Contact?
     @State private var showingAddContact = false
@@ -25,6 +26,9 @@ struct ContactsManagerView: View {
         .searchable(text: $searchText)
         .navigationTitle("Contacts")
         .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Done") { dismiss() }
+            }
             ToolbarItem(placement: .primaryAction) {
                 Button {
                     showingAddContact = true

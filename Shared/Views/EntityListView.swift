@@ -120,6 +120,9 @@ struct EntityListView: View {
             NavigationStack {
                 ContactsManagerView()
             }
+#if os(macOS)
+            .frame(minWidth: 500, idealWidth: 560, minHeight: 400)
+#endif
         }
         .task {
             await FeedSyncService.sync(context: modelContext)
