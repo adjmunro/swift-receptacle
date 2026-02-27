@@ -58,6 +58,32 @@ public struct CalendarEvent: Item, Sendable {
     public var attendees: [String]
     public var isAllDay: Bool
     public var notes: String?
+
+    public init(
+        id: String,
+        entityId: String,
+        sourceId: String,
+        date: Date,
+        summary: String,
+        title: String,
+        endDate: Date,
+        location: String? = nil,
+        attendees: [String] = [],
+        isAllDay: Bool = false,
+        notes: String? = nil
+    ) {
+        self.id = id
+        self.entityId = entityId
+        self.sourceId = sourceId
+        self.date = date
+        self.summary = summary
+        self.title = title
+        self.endDate = endDate
+        self.location = location
+        self.attendees = attendees
+        self.isAllDay = isAllDay
+        self.notes = notes
+    }
 }
 
 public struct CalendarEventDraft: Sendable {

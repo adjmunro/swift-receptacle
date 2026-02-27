@@ -1,5 +1,5 @@
 import Foundation
-import FeedKit
+@preconcurrency import FeedKit
 import Receptacle  // FeedConfig, FeedItemRecord, FeedFormat live in ReceptacleCore
 
 // MARK: - FeedSource
@@ -28,11 +28,14 @@ public actor FeedSource: MessageSource {
             throw MessageSourceError.invalidConfiguration("Invalid feed URL: \(config.feedURLString)")
         }
 
-        let feed: Feed = try await withCheckedThrowingContinuation { cont in
-            let parser = FeedParser(URL: feedURL)
-            parser.parseAsync(queue: .global(qos: .userInitiated)) { result in
-                cont.resume(with: result.mapError { $0 as Error })
-            }
+        // Fetch data via URLSession (Sendable-safe), then parse synchronously.
+        // Avoids passing non-Sendable FeedKit types across concurrency boundaries.
+        let (data, _) = try await URLSession.shared.data(from: feedURL)
+        let result = FeedParser(data: data).parse()
+        let feed: Feed
+        switch result {
+        case .success(let f): feed = f
+        case .failure(let e): throw e as Error
         }
 
         let records = mapFeed(feed)
@@ -95,8 +98,7 @@ public actor FeedSource: MessageSource {
     private func mapAtom(_ atomFeed: AtomFeed) -> [FeedItemRecord] {
         (atomFeed.entries ?? []).compactMap { entry -> FeedItemRecord? in
             guard let date = entry.updated ?? entry.published else { return nil }
-            let link = entry.links?.first(where: { $0.attributes?.rel == "alternate" })
-                               ?.attributes?.href
+            let link = entry.links?.first(where: { $0.attributes?.rel == "alternate" })?.attributes?.href
             let html = entry.content?.value ?? entry.summary?.value ?? ""
             return FeedItemRecord(
                 id:          FeedItemRecord.makeId(feedId: config.feedId,
@@ -104,7 +106,7 @@ public actor FeedSource: MessageSource {
                 entityId:    config.entityId,
                 sourceId:    config.feedId,
                 date:        date,
-                title:       entry.title?.value ?? "(Untitled)",
+                title:       entry.title ?? "(Untitled)",
                 summary:     FeedItemRecord.plainSummary(from: html),
                 linkURL:     link,
                 contentHTML: html,
@@ -116,7 +118,7 @@ public actor FeedSource: MessageSource {
     private func mapJSON(_ jsonFeed: JSONFeed) -> [FeedItemRecord] {
         (jsonFeed.items ?? []).compactMap { item -> FeedItemRecord? in
             guard let date = item.datePublished else { return nil }
-            let html = item.contentHTML ?? item.contentText ?? ""
+            let html = item.contentHtml ?? item.contentText ?? ""
             return FeedItemRecord(
                 id:          FeedItemRecord.makeId(feedId: config.feedId,
                                                    guid: item.id ?? UUID().uuidString),

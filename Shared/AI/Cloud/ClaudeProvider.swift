@@ -29,7 +29,7 @@ public actor ClaudeProvider: AIProvider {
         let param = MessageParameter(
             model: .other(model),
             messages: [
-                .init(role: MessageParameter.Message.Role.user.rawValue,
+                .init(role: .user,
                       content: .text("Summarise the following content in 2-3 concise sentences:\n\n\(text)"))
             ],
             maxTokens: 512
@@ -45,7 +45,7 @@ public actor ClaudeProvider: AIProvider {
         let param = MessageParameter(
             model: .other(model),
             messages: [
-                .init(role: MessageParameter.Message.Role.user.rawValue,
+                .init(role: .user,
                       content: .text(text))
             ],
             maxTokens: 1024,
@@ -70,7 +70,7 @@ public actor ClaudeProvider: AIProvider {
         let param = MessageParameter(
             model: .other(model),
             messages: [
-                .init(role: MessageParameter.Message.Role.user.rawValue,
+                .init(role: .user,
                       content: .text(text))
             ],
             maxTokens: 256,
@@ -88,7 +88,7 @@ public actor ClaudeProvider: AIProvider {
         let param = MessageParameter(
             model: .other(model),
             messages: [
-                .init(role: MessageParameter.Message.Role.user.rawValue,
+                .init(role: .user,
                       content: .text(text))
             ],
             maxTokens: 128,
@@ -101,7 +101,7 @@ public actor ClaudeProvider: AIProvider {
         let raw = response.content.compactMap {
             if case .text(let t) = $0 { return t } else { return nil }
         }.joined()
-        return raw.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        return raw.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
     }
 
     // MARK: - Helpers

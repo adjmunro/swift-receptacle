@@ -168,14 +168,16 @@ actor IMAPSource: MessageSource {
             try await smtp.authenticateXOAUTH2(email: config.username, accessToken: cred)
         }
 
-        let email = Email(
+        var email = Email(
             sender: EmailAddress(address: config.username),
             recipients: [EmailAddress(address: reply.toAddress)],
             ccRecipients: reply.ccAddresses.map { EmailAddress(address: $0) },
             subject: reply.subject,
-            textBody: reply.body,
-            additionalHeaders: reply.itemId.isEmpty ? nil : ["In-Reply-To": reply.itemId]
+            textBody: reply.body
         )
+        if !reply.itemId.isEmpty {
+            email.additionalHeaders = ["In-Reply-To": reply.itemId]
+        }
         try await smtp.sendEmail(email)
     }
 
