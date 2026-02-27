@@ -145,6 +145,7 @@ private struct BottomActionBar: View {
                 } label: {
                     Label("Add Feed", systemImage: "dot.radiowaves.up.forward")
                         .frame(maxWidth: .infinity)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .help("Subscribe to an RSS or Atom feed")
@@ -157,6 +158,7 @@ private struct BottomActionBar: View {
                 } label: {
                     Label("Contacts", systemImage: "person.2")
                         .frame(maxWidth: .infinity)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .help("Browse and edit contacts")
