@@ -23,6 +23,9 @@ final class Entity {
     var retentionPolicy: RetentionPolicy
     var replyTone: ReplyTone
     var subRules: [SubRule]
+    /// Desired refresh cadence for feed entities, in minutes. Stored so the sync
+    /// scheduler can respect per-feed intervals. Default: 60 (hourly).
+    var feedRefreshIntervalMinutes: Int = 60
 
     init(
         displayName: String,

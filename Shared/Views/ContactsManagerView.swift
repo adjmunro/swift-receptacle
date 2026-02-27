@@ -117,6 +117,7 @@ struct ContactDetailView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var showDeleteConfirm = false
+    @State private var associatedEntity: Entity? = nil
 
     private var navigationTitle: String {
         contact.type == .feed ? "Edit Feed" : "Edit Contact"
@@ -129,15 +130,21 @@ struct ContactDetailView: View {
     var body: some View {
         NavigationStack {
             Form {
+                // Identity
                 Section("Identity") {
                     TextField("Display Name", text: $contact.displayName, prompt: Text("Display Name"))
-                    Picker("Type", selection: $contact.type) {
-                        ForEach(ContactType.allCases, id: \.self) { type in
-                            Text(type.displayName).tag(type)
+                    if contact.type == .feed {
+                        LabeledContent("Type", value: contact.type.displayName)
+                    } else {
+                        Picker("Type", selection: $contact.type) {
+                            ForEach(ContactType.allCases, id: \.self) { type in
+                                Text(type.displayName).tag(type)
+                            }
                         }
                     }
                 }
 
+                // Source identifiers / Feed URL
                 if !contact.sourceIdentifiers.isEmpty {
                     Section(contact.type == .feed ? "Feed URL" : "Source Identifiers") {
                         ForEach(contact.sourceIdentifiers.indices, id: \.self) { i in
@@ -151,6 +158,12 @@ struct ContactDetailView: View {
                     }
                 }
 
+                // Feed-specific settings (only when entity is loaded)
+                if contact.type == .feed, let entity = associatedEntity {
+                    FeedSettingsSection(entity: entity)
+                }
+
+                // Delete
                 Section {
                     Button(role: .destructive) {
                         showDeleteConfirm = true
@@ -165,7 +178,10 @@ struct ContactDetailView: View {
             .navigationTitle(navigationTitle)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                    Button("Done") {
+                        try? modelContext.save()
+                        dismiss()
+                    }
                 }
             }
             .confirmationDialog(
@@ -180,9 +196,17 @@ struct ContactDetailView: View {
                     : "This will permanently delete this contact.")
             }
         }
+        .onAppear { loadEntity() }
 #if os(macOS)
-        .frame(minWidth: 420, idealWidth: 460, minHeight: 320)
+        .frame(minWidth: 420, idealWidth: 480, minHeight: 440)
 #endif
+    }
+
+    private func loadEntity() {
+        let cid = contact.id.uuidString
+        associatedEntity = (try? modelContext.fetch(FetchDescriptor<Entity>()))?.first {
+            $0.contactIds.contains(cid)
+        }
     }
 
     private func deleteContact() {
@@ -203,6 +227,118 @@ struct ContactDetailView: View {
         modelContext.delete(contact)
         try? modelContext.save()
         dismiss()
+    }
+}
+
+// MARK: - FeedSettingsSection
+
+/// Edits the Entity fields that are meaningful for an RSS feed:
+/// refresh cadence, retention policy, and priority.
+private struct FeedSettingsSection: View {
+    @Bindable var entity: Entity
+
+    @State private var retentionKind: RetentionKind = .keepLatest
+    @State private var retentionCount: Int = 50
+
+    var body: some View {
+        Section("Feed Settings") {
+            // Refresh cadence
+            Picker("Refresh Every", selection: $entity.feedRefreshIntervalMinutes) {
+                Text("15 minutes").tag(15)
+                Text("30 minutes").tag(30)
+                Text("1 hour").tag(60)
+                Text("3 hours").tag(180)
+                Text("6 hours").tag(360)
+                Text("Daily").tag(1440)
+            }
+
+            // Retention policy — type picker
+            Picker("Keep", selection: $retentionKind) {
+                ForEach(RetentionKind.allCases, id: \.self) { kind in
+                    Text(kind.displayName).tag(kind)
+                }
+            }
+            .onChange(of: retentionKind) { _, new in
+                entity.retentionPolicy = .make(kind: new, count: retentionCount)
+            }
+
+            // Associated count (shown only when the policy needs one)
+            if retentionKind.needsCount {
+                Stepper(
+                    retentionKind == .keepLatest
+                        ? "\(retentionCount) items"
+                        : "\(retentionCount) days",
+                    value: $retentionCount,
+                    in: 1...9999
+                )
+                .onChange(of: retentionCount) { _, new in
+                    entity.retentionPolicy = .make(kind: retentionKind, count: new)
+                }
+            }
+
+            // Priority / importance
+            Picker("Priority", selection: $entity.importanceLevel) {
+                Text("Normal").tag(ImportanceLevel.normal)
+                Text("Important").tag(ImportanceLevel.important)
+                Text("Critical").tag(ImportanceLevel.critical)
+            }
+        }
+        .onAppear {
+            retentionKind  = RetentionKind(from: entity.retentionPolicy)
+            retentionCount = entity.retentionPolicy.associatedCount
+        }
+    }
+}
+
+// MARK: - RetentionPolicy editing helpers
+
+/// Flat enum mirroring `RetentionPolicy` cases without associated values,
+/// used to drive a Picker in the UI.
+private enum RetentionKind: String, CaseIterable {
+    case keepAll, keepLatest, keepDays, autoArchive, autoDelete
+
+    init(from policy: RetentionPolicy) {
+        switch policy {
+        case .keepAll:     self = .keepAll
+        case .keepLatest:  self = .keepLatest
+        case .keepDays:    self = .keepDays
+        case .autoArchive: self = .autoArchive
+        case .autoDelete:  self = .autoDelete
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .keepAll:     return "Keep all"
+        case .keepLatest:  return "Keep latest N"
+        case .keepDays:    return "Keep N days"
+        case .autoArchive: return "Auto-archive"
+        case .autoDelete:  return "Auto-delete"
+        }
+    }
+
+    /// Whether this kind requires a numeric count to be meaningful.
+    var needsCount: Bool { self == .keepLatest || self == .keepDays }
+}
+
+private extension RetentionPolicy {
+    /// Returns the associated integer for `.keepLatest` / `.keepDays`, defaulting to 50.
+    var associatedCount: Int {
+        switch self {
+        case .keepLatest(let n), .keepDays(let n): return n
+        default: return 50
+        }
+    }
+
+    /// Reconstructs a `RetentionPolicy` from a `RetentionKind` + count.
+    static func make(kind: RetentionKind, count: Int) -> RetentionPolicy {
+        switch kind {
+        case .keepAll:     return .keepAll
+        case .keepLatest:  return .keepLatest(count)
+        case .keepDays:    return .keepDays(count)
+        case .autoArchive: return .autoArchive
+        case .autoDelete:  return .autoDelete
+        }
     }
 }
 
