@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		006D0DC7AF61C0F4E4DFA8F7 /* SavedLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56B39D3B4E08584432385161 /* SavedLink.swift */; };
 		00BF07ADDC9C683292F6D51F /* Tag.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0003874E41F0A3D3B23E3D76 /* Tag.swift */; };
-		02D4714DB953373C9A2669FA /* AttachmentSaver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27BE52936CF3B58BA3F6A7DA /* AttachmentSaver.swift */; };
 		0306EE2CE4CE997A3CE08947 /* AIProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA40E50AEF014E4816E60EC /* AIProvider.swift */; };
 		038E0E001062E8B45022D8A1 /* MSAL in Frameworks */ = {isa = PBXBuildFile; productRef = 3E27953231767C2C20CC75C0 /* MSAL */; };
 		0919C0EFA43A8AEE61F077B3 /* TagBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26947BC82D877B6965DF8331 /* TagBrowserView.swift */; };
@@ -70,6 +69,7 @@
 		77D04B41F784A5C16FFC353D /* WebViewTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01466196F0708E405588B148 /* WebViewTabView.swift */; };
 		79261AD06DEE09B55646A66E /* Phase13Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D97CB1FC3B9C7847AA719E6B /* Phase13Tests.swift */; };
 		7C67B8E2A396C3A68798842B /* FeedKit in Frameworks */ = {isa = PBXBuildFile; productRef = 1D6D1BAD0E77C86B69DC4191 /* FeedKit */; };
+		A997C33E08ED493981B7ECA7 /* FeedKit in Frameworks */ = {isa = PBXBuildFile; productRef = 96117083526949ECA57A586C /* FeedKit */; };
 		7EA77B2DBE8CBAF18EF79FDA /* HTMLBodyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F039BD5CCB132E3B81FE23F3 /* HTMLBodyView.swift */; };
 		81CACDB3AB3B6517770F4298 /* sample.rss in Resources */ = {isa = PBXBuildFile; fileRef = A9858E188770E0B06CBD580B /* sample.rss */; };
 		82E108D2005E19B0872FA41A /* ContactsManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82AF6036135FCB4A45AC42BB /* ContactsManagerView.swift */; };
@@ -93,7 +93,6 @@
 		AC0F6BA5A0780A5D6BC28FEE /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 6E8E498B197188824F90D8F8 /* GoogleSignInSwift */; };
 		B17EB10658D2612F7F4FD12A /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 7F3957AE33D9A26AA6FDA568 /* GoogleSignIn */; };
 		B3968590CE80AB32D7165C5C /* NoteGraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFBEF79619497EA67709454B /* NoteGraphView.swift */; };
-		B42F2EFCD56B12F70EE3D1CE /* AttachmentSaver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27BE52936CF3B58BA3F6A7DA /* AttachmentSaver.swift */; };
 		B48F72C1B4E5B149F1CB3382 /* Note.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AF454CEC91E9AE4F8820B88 /* Note.swift */; };
 		B629739386EFA5E0426F44C4 /* HTMLBodyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F039BD5CCB132E3B81FE23F3 /* HTMLBodyView.swift */; };
 		B852DD106403E99B2F55EC15 /* IMAPSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7768981D9295E983DB8A0FC /* IMAPSource.swift */; };
@@ -229,6 +228,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				173D9DD8E57CF2286E7DA6A2 /* Receptacle in Frameworks */,
+				A997C33E08ED493981B7ECA7 /* FeedKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -512,6 +512,7 @@
 			name = ReceptacleTests;
 			packageProductDependencies = (
 				97136B4973A8E15469B2A1FC /* Receptacle */,
+				96117083526949ECA57A586C /* FeedKit */,
 			);
 			productName = ReceptacleTests;
 			productReference = E36C73DFA43B5FBAD6424612 /* ReceptacleTests.xctest */;
@@ -666,7 +667,6 @@
 				630065C28DA6FA0BA9219473 /* AIProvider.swift in Sources */,
 				0B13F12503763FF076344CA4 /* AccountSetupView.swift in Sources */,
 				18D87703EDA58F74EA97A3F1 /* AccountsSettingsView.swift in Sources */,
-				02D4714DB953373C9A2669FA /* AttachmentSaver.swift in Sources */,
 				306E0DE50D3CDB99CDE2FCED /* CalendarEventCreatorView.swift in Sources */,
 				5E0265714D6546A138227BEB /* CalendarSource.swift in Sources */,
 				9092F2E724A5B56DA335D3C9 /* ClaudeProvider.swift in Sources */,
@@ -724,7 +724,6 @@
 				0306EE2CE4CE997A3CE08947 /* AIProvider.swift in Sources */,
 				CB5995EA37C24A0B1F27AE3B /* AccountSetupView.swift in Sources */,
 				50055545A9CDAD729F57EA5A /* AccountsSettingsView.swift in Sources */,
-				B42F2EFCD56B12F70EE3D1CE /* AttachmentSaver.swift in Sources */,
 				F883D0B60EAE2FD25E7D4081 /* CalendarEventCreatorView.swift in Sources */,
 				6E52B363809F9BBAA2750FDE /* CalendarSource.swift in Sources */,
 				D416EF74D707B8AB429D28D3 /* ClaudeProvider.swift in Sources */,
@@ -809,6 +808,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -874,6 +874,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -1218,6 +1219,11 @@
 			productName = FeedKit;
 		};
 		2055A98A3DA15C662139AB53 /* FeedKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C6C5D23EC8D65DFB88E7B353 /* XCRemoteSwiftPackageReference "FeedKit" */;
+			productName = FeedKit;
+		};
+		96117083526949ECA57A586C /* FeedKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = C6C5D23EC8D65DFB88E7B353 /* XCRemoteSwiftPackageReference "FeedKit" */;
 			productName = FeedKit;

@@ -16,8 +16,6 @@ private func fixtureData(named name: String) throws -> Data {
     let url = Bundle(for: FeedSourceTestsMarker.self)
         .url(forResource: name, withExtension: nil,
              subdirectory: "Fixtures")
-        ?? Bundle.module.url(forResource: name, withExtension: nil,
-                             subdirectory: "Fixtures")
     guard let url else {
         // Fallback: look next to the test file in the source tree
         let sourceURL = URL(fileURLWithPath: #filePath)
@@ -123,7 +121,7 @@ struct FeedSourceTests {
         }
         let entries = atomFeed.entries ?? []
         #expect(entries.count == 3)
-        #expect(entries[0].title?.value == "Swift Concurrency in Practice")
+        #expect(entries[0].title == "Swift Concurrency in Practice")
         let link = entries[0].links?.first(where: { $0.attributes?.rel == "alternate" })
         #expect(link?.attributes?.href?.contains("concurrency") == true)
         #expect(entries[0].updated != nil)
@@ -146,7 +144,7 @@ struct FeedSourceTests {
         #expect(items[0].title == "Migrating to Swift 6")
         #expect(items[0].url?.contains("swift6") == true)
         #expect(items[0].datePublished != nil)
-        #expect(items[0].contentHTML?.contains("StrictConcurrency") == true)
+        #expect(items[0].contentHtml?.contains("StrictConcurrency") == true)
     }
 
     // MARK: Date filtering
