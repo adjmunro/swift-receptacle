@@ -8,6 +8,7 @@ struct ContactsManagerView: View {
     @Query(sort: \Contact.displayName) private var contacts: [Contact]
     @State private var searchText = ""
     @State private var selectedContact: Contact?
+    @State private var showingAddContact = false
 
     var filtered: [Contact] {
         guard !searchText.isEmpty else { return contacts }
@@ -23,11 +24,69 @@ struct ContactsManagerView: View {
         }
         .searchable(text: $searchText)
         .navigationTitle("Contacts")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showingAddContact = true
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .help("Add a new contact")
+            }
+        }
         .sheet(item: $selectedContact) { contact in
             ContactDetailView(contact: contact)
         }
+        .sheet(isPresented: $showingAddContact) {
+            AddContactSheet()
+        }
     }
 }
+
+// MARK: - AddContactSheet
+
+private struct AddContactSheet: View {
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var displayName = ""
+    @State private var contactType: ContactType = .person
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Identity") {
+                    TextField("Display Name", text: $displayName)
+                    Picker("Type", selection: $contactType) {
+                        ForEach(ContactType.allCases, id: \.self) { type in
+                            Text(type.displayName).tag(type)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Add Contact")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add") {
+                        let contact = Contact(
+                            displayName: displayName.trimmingCharacters(in: .whitespaces),
+                            type: contactType
+                        )
+                        modelContext.insert(contact)
+                        try? modelContext.save()
+                        dismiss()
+                    }
+                    .disabled(displayName.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - ContactRowView
 
 struct ContactRowView: View {
     let contact: Contact
@@ -45,6 +104,8 @@ struct ContactRowView: View {
         }
     }
 }
+
+// MARK: - ContactDetailView
 
 struct ContactDetailView: View {
     @Bindable var contact: Contact
@@ -81,6 +142,8 @@ struct ContactDetailView: View {
         }
     }
 }
+
+// MARK: - ContactType extensions
 
 extension ContactType {
     var displayName: String {

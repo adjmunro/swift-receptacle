@@ -27,6 +27,10 @@ struct EntityListView: View {
     /// macOS: drives NavigationSplitView detail. iOS: unused (NavigationLink handles navigation).
     @Binding var selectedEntity: Entity?
 
+    @State private var showingAddFeed  = false
+    @State private var showingContacts = false
+    @Environment(\.modelContext) private var modelContext
+
     // MARK: Init
 
     /// Designated init. macOS passes a real binding; iOS calls with no argument.
@@ -103,6 +107,61 @@ struct EntityListView: View {
         }
         .navigationTitle("Inbox")
         .listStyle(.sidebar)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            BottomActionBar(
+                showingAddFeed: $showingAddFeed,
+                showingContacts: $showingContacts
+            )
+        }
+        .sheet(isPresented: $showingAddFeed) {
+            AddFeedSheet()
+        }
+        .sheet(isPresented: $showingContacts) {
+            NavigationStack {
+                ContactsManagerView()
+            }
+        }
+        .task {
+            await FeedSyncService.sync(context: modelContext)
+        }
+    }
+}
+
+// MARK: - BottomActionBar
+
+private struct BottomActionBar: View {
+    @Binding var showingAddFeed: Bool
+    @Binding var showingContacts: Bool
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Divider()
+            HStack(spacing: 0) {
+                Button {
+                    showingAddFeed = true
+                } label: {
+                    Label("Add Feed", systemImage: "dot.radiowaves.up.forward")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.plain)
+                .help("Subscribe to an RSS or Atom feed")
+
+                Divider()
+                    .frame(height: 20)
+
+                Button {
+                    showingContacts = true
+                } label: {
+                    Label("Contacts", systemImage: "person.2")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.plain)
+                .help("Browse and edit contacts")
+            }
+            .frame(height: 30)
+            .padding(.horizontal)
+        }
+        .background(.bar)
     }
 }
 
