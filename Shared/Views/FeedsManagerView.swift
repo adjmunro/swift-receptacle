@@ -48,15 +48,14 @@ struct FeedsManagerView: View {
         }
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                Button("Done") { dismiss() }
-            }
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    showingAddFeed = true
-                } label: {
-                    Image(systemName: "plus")
+                HStack {
+                    Button("Add") {
+                        showingAddFeed = true
+                    }
+                    .help("Subscribe to an RSS, Atom, or JSON feed")
+
+                    Button("Done") { dismiss() }
                 }
-                .help("Subscribe to an RSS, Atom, or JSON feed")
             }
         }
         .sheet(item: $selectedFeed) { feed in

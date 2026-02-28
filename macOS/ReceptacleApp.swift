@@ -51,23 +51,18 @@ struct ReceptacleApp: App {
 // MARK: - ContentView
 
 struct ContentView: View {
-    @State private var selectedEntity: Entity?
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
-            EntityListView(selectedEntity: $selectedEntity)
+            EntityListView()
                 .navigationSplitViewColumnWidth(min: 180, ideal: 240, max: 320)
         } detail: {
-            if let entity = selectedEntity {
-                PostFeedView(entity: entity)
-            } else {
-                ContentUnavailableView(
-                    "Select an entity",
-                    systemImage: "tray",
-                    description: Text("Choose a sender from the sidebar.")
-                )
-            }
+            ContentUnavailableView(
+                "Select an entity",
+                systemImage: "tray",
+                description: Text("Choose a sender from the sidebar.")
+            )
         }
         .navigationTitle("Receptacle")
     }
