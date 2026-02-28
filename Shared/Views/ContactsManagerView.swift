@@ -151,10 +151,21 @@ struct ContactDetailView: View {
                     Section(contact.type == .feed ? "Feed URL" : "Source Identifiers") {
                         ForEach(contact.sourceIdentifiers.indices, id: \.self) { i in
                             LabeledContent(contact.sourceIdentifiers[i].type.rawValue.uppercased()) {
-                                Text(contact.sourceIdentifiers[i].value)
-                                    .foregroundStyle(.secondary)
-                                    .textSelection(.enabled)
-                                    .multilineTextAlignment(.trailing)
+                                HStack(spacing: 6) {
+                                    Text(contact.sourceIdentifiers[i].value)
+                                        .foregroundStyle(.secondary)
+                                        .textSelection(.enabled)
+                                        .multilineTextAlignment(.trailing)
+
+                                    Button {
+                                        copyToClipboard(contact.sourceIdentifiers[i].value)
+                                    } label: {
+                                        Image(systemName: "doc.on.doc")
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help("Copy to clipboard")
+                                }
                             }
                         }
                     }
@@ -201,6 +212,15 @@ struct ContactDetailView: View {
         .onAppear { loadEntity() }
 #if os(macOS)
         .frame(minWidth: 420, idealWidth: 480, minHeight: 440)
+#endif
+    }
+
+    private func copyToClipboard(_ string: String) {
+#if os(macOS)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(string, forType: .string)
+#else
+        UIPasteboard.general.string = string
 #endif
     }
 
