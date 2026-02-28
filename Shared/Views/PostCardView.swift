@@ -17,9 +17,13 @@ import Textual
 struct PostCardView: View {
     let item: PostCardItem
     let entity: Entity
+    let feedHeight: CGFloat
 
     /// Called when the user taps Reply — parent presents VoiceReplyView.
     var onReply: (() -> Void)? = nil
+
+    // 160pt = ~120pt card chrome (header + divider + actionBar + padding) + 40pt breathing room
+    private var bodyMaxHeight: CGFloat { max(200, feedHeight - 160) }
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.openURL) private var openURL
@@ -153,44 +157,63 @@ struct PostCardView: View {
         }
     }
 
+    @ViewBuilder
     private var bodyContent: some View {
-        VStack(alignment: .leading, spacing: 8) {
-
-            // YouTube: inline player (logic unchanged)
-            if let linkStr = item.linkURLString,
-               let videoID = FeedItemRecord.youTubeVideoID(from: linkStr) {
-                YouTubePlayerView(videoID: videoID, isLoaded: $isYouTubeLoaded)
+        // YouTube: inline player — 16:9 aspect ratio keeps height below cap in practice,
+        // but goes through CardBody to keep all paths symmetric.
+        if let linkStr = item.linkURLString,
+           let videoID = FeedItemRecord.youTubeVideoID(from: linkStr) {
+            CardBody(content: YouTubePlayerView(videoID: videoID, isLoaded: $isYouTubeLoaded),
+                     maxHeight: bodyMaxHeight)
+        }
+        // Feed item with HTML: markdown default, Looking Glass on demand
+        else if let html = item.contentHTML {
+            if isWebViewLoaded, let urlStr = item.linkURLString {
+                // LookingGlass: fixed height so both card borders stay visible.
+                LookingGlassWebView(urlString: urlStr)
+                    .frame(height: bodyMaxHeight)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            } else {
+                let baseURL = item.linkURLString.flatMap { URL(string: $0) }
+                CardBody(
+                    content: StructuredText(
+                        markdown: FeedItemRecord.htmlToMarkdown(from: html),
+                        baseURL: baseURL
+                    )
+                    // Comfortable reading width — prevents wall-to-wall lines
+                    .frame(maxWidth: 700)
+                    // Tighter paragraph spacing for newsletter-style HTML content
+                    .textual.blockSpacing(StructuredText.BlockSpacing(top: 2, bottom: 6))
+                    // Line height: 1.45× the body font size
+                    .textual.lineSpacing(.fontScaled(0.45))
+                    // Load inline images from feed article URLs
+                    .textual.imageAttachmentLoader(.image(relativeTo: baseURL)),
+                    maxHeight: bodyMaxHeight
+                )
             }
-            // Feed item with HTML: markdown default, Looking Glass on demand
-            else if let html = item.contentHTML {
-                if isWebViewLoaded, let urlStr = item.linkURLString {
-                    LookingGlassWebView(urlString: urlStr)
-                        .frame(minHeight: 400)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                } else {
-                    StructuredText(markdown: FeedItemRecord.htmlToMarkdown(from: html))
-                }
-            }
-            // Email / feed with no contentHTML: plain text + quoted toggle (unchanged)
-            else {
-                Text(showQuoted ? item.summary : collapsedBody)
-                    .font(.body)
-                    .foregroundStyle(.primary)
-                    .animation(.easeInOut(duration: 0.15), value: showQuoted)
-                if hasQuotedContent {
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.15)) { showQuoted.toggle() }
-                    } label: {
-                        Label(
-                            showQuoted ? "Hide quoted text" : "Show quoted text",
-                            systemImage: showQuoted ? "quote.bubble" : "quote.bubble.fill"
-                        )
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+        }
+        // Email / no-HTML: plain text + quoted toggle — now height-capped too.
+        else {
+            CardBody(
+                content: VStack(alignment: .leading, spacing: 8) {
+                    Text(showQuoted ? item.summary : collapsedBody)
+                        .font(.body)
+                        .foregroundStyle(.primary)
+                        .animation(.easeInOut(duration: 0.15), value: showQuoted)
+                    if hasQuotedContent {
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.15)) { showQuoted.toggle() }
+                        } label: {
+                            Label(showQuoted ? "Hide quoted text" : "Show quoted text",
+                                  systemImage: showQuoted ? "quote.bubble" : "quote.bubble.fill")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
-                }
-            }
+                },
+                maxHeight: bodyMaxHeight
+            )
         }
     }
 
@@ -356,6 +379,82 @@ struct PostCardView: View {
     }
 }
 
+// MARK: - ContentHeightKey
+
+private struct ContentHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
+// MARK: - CardBodyScrollView (macOS)
+
+#if os(macOS)
+private struct CardBodyScrollView<Content: View>: NSViewRepresentable {
+    let content: Content
+    let maxHeight: CGFloat
+    @Binding var contentHeight: CGFloat
+
+    func makeNSView(context: Context) -> NestedCardScrollView {
+        let sv = NestedCardScrollView()
+        sv.hasVerticalScroller    = true
+        sv.autohidesScrollers     = true
+        sv.hasHorizontalScroller  = false
+        sv.verticalScrollElasticity = .none
+        sv.drawsBackground        = false
+
+        let hv = NSHostingView(rootView: content)
+        hv.translatesAutoresizingMaskIntoConstraints = false
+        sv.documentView = hv
+
+        NSLayoutConstraint.activate([
+            hv.widthAnchor.constraint(equalTo: sv.contentView.widthAnchor)
+        ])
+        return sv
+    }
+
+    func updateNSView(_ sv: NestedCardScrollView, context: Context) {
+        guard let hv = sv.documentView as? NSHostingView<Content> else { return }
+        hv.rootView = content
+        DispatchQueue.main.async {
+            let h = hv.fittingSize.height
+            if contentHeight != h { contentHeight = h }
+        }
+    }
+
+    func makeCoordinator() {}
+}
+#endif
+
+// MARK: - CardBody
+
+private struct CardBody<Content: View>: View {
+    let content: Content
+    let maxHeight: CGFloat
+    @State private var contentHeight: CGFloat = 0
+
+    var body: some View {
+        let clampedHeight = min(max(contentHeight, 40), maxHeight)
+#if os(macOS)
+        CardBodyScrollView(content: content,
+                           maxHeight: maxHeight,
+                           contentHeight: $contentHeight)
+            .frame(height: clampedHeight)
+#else
+        ScrollView {
+            content
+                .background(GeometryReader { geo in
+                    Color.clear.preference(key: ContentHeightKey.self,
+                                           value: geo.size.height)
+                })
+        }
+        .frame(maxHeight: maxHeight)
+        .onPreferenceChange(ContentHeightKey.self) { contentHeight = $0 }
+#endif
+    }
+}
+
 // MARK: - YouTubePlayerView
 
 /// Shows a thumbnail with a play button. Tapping replaces it with an embedded
@@ -445,6 +544,44 @@ private final class YouTubeWebCoordinator: NSObject, WKNavigationDelegate {
 }
 
 #if os(macOS)
+
+// MARK: - NestedCardScrollView
+
+/// NSScrollView subclass that routes scroll events based on card visibility.
+///
+/// - Card partially off-screen → forwards to the outer feed scroll.
+/// - Card fully on-screen + inner content not at edge → scrolls inner content.
+/// - Inner content at top edge + scrolling up → forwards to outer.
+/// - Inner content at bottom edge + scrolling down → forwards to outer.
+private class NestedCardScrollView: NSScrollView {
+
+    private var isFullyVisibleInWindow: Bool {
+        guard let window else { return false }
+        let frameInWindow = convert(bounds, to: nil)
+        return window.contentLayoutRect.contains(frameInWindow)
+    }
+
+    override func scrollWheel(with event: NSEvent) {
+        guard isFullyVisibleInWindow else {
+            enclosingScrollView?.scrollWheel(with: event)
+            return
+        }
+
+        let visRect  = documentVisibleRect
+        let docH     = documentView?.frame.height ?? 0
+        let atTop    = visRect.minY <= 1.0
+        let atBottom = visRect.maxY >= docH - 1.0
+        let goingUp  = event.scrollingDeltaY > 0
+
+        if (goingUp && atTop) || (!goingUp && atBottom) {
+            enclosingScrollView?.scrollWheel(with: event)
+        } else {
+            super.scrollWheel(with: event)
+        }
+    }
+}
+
+// MARK: - PassthroughScrollWKWebView
 
 /// WKWebView subclass that forwards scroll events to the enclosing NSScrollView
 /// (SwiftUI's ScrollView backing) so the post feed can scroll while the cursor
@@ -560,25 +697,50 @@ private struct YouTubeWebView: UIViewRepresentable {
 // youTubeEmbedHTML is defined as FeedItemRecord.youTubeEmbedHTML(videoID:autoplay:)
 // in the Receptacle package (FeedTypes.swift) so it can be unit-tested.
 
-// MARK: - LookingGlassWebView
+// MARK: - LookingGlassWKWebView / LookingGlassWebView
+
+#if os(macOS)
+/// WKWebView subclass for LookingGlass that scrolls web content internally
+/// when the card is fully visible, and forwards to the outer feed scroll otherwise.
+private class LookingGlassWKWebView: WKWebView {
+    override func scrollWheel(with event: NSEvent) {
+        if isFullyVisibleInWindow {
+            // WKWebView propagates remaining delta up the responder chain when
+            // the page hits its edge, so the outer feed scroll still works.
+            super.scrollWheel(with: event)
+        } else {
+            if let sv = enclosingScrollView {
+                sv.scrollWheel(with: event)
+            } else {
+                nextResponder?.scrollWheel(with: event)
+            }
+        }
+    }
+
+    private var isFullyVisibleInWindow: Bool {
+        guard let window else { return false }
+        return window.contentLayoutRect.contains(convert(bounds, to: nil))
+    }
+}
+#endif
 
 /// Inline WKWebView that loads the article's URL directly.
-/// Reuses PassthroughScrollWKWebView on macOS so the post feed can still scroll.
+/// Uses LookingGlassWKWebView on macOS for visibility-aware scroll routing.
 /// Mirrors the YouTube dismantle pattern: stop loading, blank the page, hold a
 /// strong reference for 1 s so the WebContent process can commit the navigation.
 #if os(macOS)
 private struct LookingGlassWebView: NSViewRepresentable {
     let urlString: String
 
-    func makeNSView(context: Context) -> PassthroughScrollWKWebView {
-        let wv = PassthroughScrollWKWebView()
+    func makeNSView(context: Context) -> LookingGlassWKWebView {
+        let wv = LookingGlassWKWebView()
         if let url = URL(string: urlString) { wv.load(URLRequest(url: url)) }
         return wv
     }
 
-    func updateNSView(_ view: PassthroughScrollWKWebView, context: Context) {}
+    func updateNSView(_ view: LookingGlassWKWebView, context: Context) {}
 
-    static func dismantleNSView(_ nsView: PassthroughScrollWKWebView, coordinator: Void) {
+    static func dismantleNSView(_ nsView: LookingGlassWKWebView, coordinator: Void) {
         nsView.stopLoading()
         nsView.loadHTMLString("", baseURL: nil)
         let wv = nsView
@@ -632,7 +794,7 @@ private struct LookingGlassWebView: UIViewRepresentable {
         protectionLevel: .protected,
         retentionPolicy: .keepAll
     )
-    PostCardView(item: item, entity: entity)
+    PostCardView(item: item, entity: entity, feedHeight: 600)
         .padding()
         .modelContainer(for: Entity.self, inMemory: true)
 }
@@ -657,7 +819,7 @@ private struct LookingGlassWebView: UIViewRepresentable {
         protectionLevel: .normal,
         retentionPolicy: .keepLatest(20)
     )
-    PostCardView(item: item, entity: entity)
+    PostCardView(item: item, entity: entity, feedHeight: 600)
         .padding()
         .modelContainer(for: Entity.self, inMemory: true)
 }
