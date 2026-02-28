@@ -120,6 +120,7 @@ struct ContactDetailView: View {
 
     @State private var showDeleteConfirm = false
     @State private var associatedEntity: Entity? = nil
+    @State private var showCopiedToast = false
 
     private var navigationTitle: String {
         contact.type == .feed ? "Edit Feed" : "Edit Contact"
@@ -209,6 +210,19 @@ struct ContactDetailView: View {
                     : "This will permanently delete this contact.")
             }
         }
+        .overlay(alignment: .bottom) {
+            if showCopiedToast {
+                Text("Copied!")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(.tint, in: Capsule())
+                    .padding(.bottom, 24)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.spring(duration: 0.3), value: showCopiedToast)
         .onAppear { loadEntity() }
 #if os(macOS)
         .frame(minWidth: 420, idealWidth: 480, minHeight: 440)
@@ -222,6 +236,11 @@ struct ContactDetailView: View {
 #else
         UIPasteboard.general.string = string
 #endif
+        showCopiedToast = true
+        Task {
+            try? await Task.sleep(for: .seconds(1.5))
+            showCopiedToast = false
+        }
     }
 
     private func loadEntity() {
