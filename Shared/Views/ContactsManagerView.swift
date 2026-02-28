@@ -210,7 +210,7 @@ struct ContactDetailView: View {
                     : "This will permanently delete this contact.")
             }
         }
-        .overlay(alignment: .bottom) {
+        .overlay(alignment: .top) {
             if showCopiedToast {
                 Text("Copied!")
                     .font(.subheadline.weight(.medium))
@@ -218,8 +218,8 @@ struct ContactDetailView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                     .background(.tint, in: Capsule())
-                    .padding(.bottom, 24)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .padding(.top, 24)
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
         .animation(.spring(duration: 0.3), value: showCopiedToast)
