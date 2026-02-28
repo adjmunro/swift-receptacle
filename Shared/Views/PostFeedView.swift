@@ -17,10 +17,10 @@ struct PostCardItem: Identifiable, Sendable {
     let sourceType: SourceType
     let isRead: Bool
     let entityId: String
-    // Phase 9: reply-to address for email items
     let replyToAddress: String?
-    // Phase 7: link URL for feed items
     let linkURLString: String?
+    /// Raw HTML body — present for RSS/Atom/JSON feed items.
+    let contentHTML: String?
 }
 
 extension EmailItem {
@@ -30,12 +30,13 @@ extension EmailItem {
             date: date,
             summary: summary,
             title: subject,
-            importanceLevel: .normal,   // Phase 1 elevation applied at query time (future)
+            importanceLevel: .normal,
             sourceType: .email,
             isRead: isRead,
             entityId: entityId,
             replyToAddress: effectiveReplyToAddress,
-            linkURLString: nil
+            linkURLString: nil,
+            contentHTML: nil
         )
     }
 }
@@ -52,7 +53,8 @@ extension FeedItem {
             isRead: isRead,
             entityId: entityId,
             replyToAddress: nil,
-            linkURLString: linkURLString
+            linkURLString: linkURLString,
+            contentHTML: contentHTML
         )
     }
 }

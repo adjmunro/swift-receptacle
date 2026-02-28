@@ -137,26 +137,27 @@ struct PostCardView: View {
 
     private var bodyContent: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Phase 7: replace with HTMLBodyView(html: item.bodyHTML).
-            // For now, show plain-text summary with quoted sections collapsed.
-            Text(showQuoted ? item.summary : collapsedBody)
-                .font(.body)
-                .foregroundStyle(.primary)
-                .animation(.easeInOut(duration: 0.15), value: showQuoted)
+            if let html = item.contentHTML {
+                HTMLTextView(html: html)
+            } else {
+                Text(showQuoted ? item.summary : collapsedBody)
+                    .font(.body)
+                    .foregroundStyle(.primary)
+                    .animation(.easeInOut(duration: 0.15), value: showQuoted)
 
-            // Only show the toggle when quoted content was actually detected.
-            if hasQuotedContent {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.15)) { showQuoted.toggle() }
-                } label: {
-                    Label(
-                        showQuoted ? "Hide quoted text" : "Show quoted text",
-                        systemImage: showQuoted ? "quote.bubble" : "quote.bubble.fill"
-                    )
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                if hasQuotedContent {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.15)) { showQuoted.toggle() }
+                    } label: {
+                        Label(
+                            showQuoted ? "Hide quoted text" : "Show quoted text",
+                            systemImage: showQuoted ? "quote.bubble" : "quote.bubble.fill"
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
         }
     }
@@ -276,6 +277,51 @@ struct PostCardView: View {
     }
 }
 
+// MARK: - HTMLTextView
+
+/// Renders an HTML string as a SwiftUI `Text` using `NSAttributedString`.
+/// Conversion is async (WebKit-backed) so a plain-text fallback shows first.
+private struct HTMLTextView: View {
+    let html: String
+    @State private var attributed: AttributedString?
+
+    var body: some View {
+        Group {
+            if let attributed {
+                Text(attributed)
+                    .textSelection(.enabled)
+            } else {
+                Text(html.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression))
+                    .font(.body)
+                    .foregroundStyle(.primary)
+            }
+        }
+        .task(id: html) { attributed = await Self.parse(html) }
+    }
+
+    @MainActor
+    private static func parse(_ html: String) async -> AttributedString? {
+        let styled = """
+        <html><head><meta charset="utf-8"><style>
+        body { font-family: -apple-system; font-size: 14px; margin: 0; }
+        pre, code { font-size: 12px; }
+        img { display: none; }
+        </style></head><body>\(html)</body></html>
+        """
+        guard let data = styled.data(using: .utf8),
+              let ns = try? NSAttributedString(
+                data: data,
+                options: [
+                    .documentType: NSAttributedString.DocumentType.html,
+                    .characterEncoding: String.Encoding.utf8.rawValue
+                ],
+                documentAttributes: nil
+              )
+        else { return nil }
+        return AttributedString(ns)
+    }
+}
+
 // MARK: - Preview
 
 #Preview("Email card — important") {
@@ -289,7 +335,8 @@ struct PostCardView: View {
         isRead: false,
         entityId: "e1",
         replyToAddress: "alerts@bank.example",
-        linkURLString: nil
+        linkURLString: nil,
+        contentHTML: nil
     )
     let entity = Entity(
         displayName: "Bank Alerts",
@@ -312,7 +359,8 @@ struct PostCardView: View {
         isRead: true,
         entityId: "e2",
         replyToAddress: nil,
-        linkURLString: "https://swift.org/blog/swift-6-2-released"
+        linkURLString: "https://swift.org/blog/swift-6-2-released",
+        contentHTML: "<p>The Swift team is pleased to announce <strong>Swift 6.2</strong>, featuring improved macros and new standard library additions.</p>"
     )
     let entity = Entity(
         displayName: "Swift.org Blog",
