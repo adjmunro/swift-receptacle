@@ -34,6 +34,18 @@ struct PostCardView: View {
     @State private var gradientAngle: Double = 0
     @State private var isYouTubeLoaded = false
     @State private var isWebViewLoaded = false
+    @State private var autoFetchedMarkdown: String? = nil
+    @State private var isAutoFetching = false
+
+    /// True when the item has a non-YouTube link but no rich HTML body.
+    /// Triggers background article fetch on card expansion.
+    private var shouldAutoFetch: Bool {
+        guard let linkStr = item.linkURLString,
+              FeedItemRecord.youTubeVideoID(from: linkStr) == nil else { return false }
+        guard let html = item.contentHTML else { return true }
+        // Plain-text teaser (no HTML tags) → auto-fetch
+        return html.range(of: "<[a-zA-Z]", options: .regularExpression) == nil
+    }
 
     // Quoted-range detection — computed once per item.
     private let detector = QuotedRangeDetector()
@@ -89,6 +101,32 @@ struct PostCardView: View {
             isWebViewLoaded = false
         }
 #endif
+        .task(id: isExpanded ? item.id : "") {
+            guard isExpanded, shouldAutoFetch,
+                  autoFetchedMarkdown == nil, !isAutoFetching else { return }
+            await performAutoFetch()
+        }
+    }
+
+    // MARK: Auto-fetch
+
+    @MainActor
+    private func performAutoFetch() async {
+        guard let urlStr = item.linkURLString, let url = URL(string: urlStr) else { return }
+        isAutoFetching = true
+        defer { isAutoFetching = false }
+        var request = URLRequest(url: url, timeoutInterval: 15)
+        request.setValue(
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15",
+            forHTTPHeaderField: "User-Agent")
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              (response as? HTTPURLResponse)?.statusCode == 200,
+              let pageHTML = String(data: data, encoding: .utf8)
+                          ?? String(data: data, encoding: .isoLatin1) else { return }
+        let body = FeedItemRecord.articleBodyHTML(from: pageHTML)
+        let markdown = FeedItemRecord.htmlToMarkdown(from: body)
+        let trimmed = markdown.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty { autoFetchedMarkdown = trimmed }
     }
 
     // MARK: Subviews
@@ -159,40 +197,57 @@ struct PostCardView: View {
 
     @ViewBuilder
     private var bodyContent: some View {
-        // YouTube: inline player — 16:9 aspect ratio keeps height below cap in practice,
-        // but goes through CardBody to keep all paths symmetric.
+        // Branch 1 — YouTube: inline player — 16:9 aspect ratio keeps height below cap.
         if let linkStr = item.linkURLString,
            let videoID = FeedItemRecord.youTubeVideoID(from: linkStr) {
             CardBody(content: YouTubePlayerView(videoID: videoID, isLoaded: $isYouTubeLoaded),
                      maxHeight: bodyMaxHeight)
         }
-        // Feed item with HTML: markdown default, Looking Glass on demand
-        else if let html = item.contentHTML {
-            if isWebViewLoaded, let urlStr = item.linkURLString {
-                // LookingGlass: fixed height so both card borders stay visible.
-                LookingGlassWebView(urlString: urlStr)
-                    .frame(height: bodyMaxHeight)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-            } else {
-                let baseURL = item.linkURLString.flatMap { URL(string: $0) }
-                CardBody(
-                    content: StructuredText(
-                        markdown: FeedItemRecord.htmlToMarkdown(from: html),
-                        baseURL: baseURL
-                    )
-                    // Comfortable reading width — prevents wall-to-wall lines
-                    .frame(maxWidth: 700)
-                    // Tighter paragraph spacing for newsletter-style HTML content
-                    .textual.blockSpacing(StructuredText.BlockSpacing(top: 2, bottom: 6))
-                    // Line height: 1.45× the body font size
-                    .textual.lineSpacing(.fontScaled(0.45))
-                    // Load inline images from feed article URLs
-                    .textual.imageAttachmentLoader(.image(relativeTo: baseURL)),
-                    maxHeight: bodyMaxHeight
-                )
-            }
+        // Branch 2 — Looking Glass (full article WebView, shown on demand)
+        else if isWebViewLoaded, let urlStr = item.linkURLString {
+            LookingGlassWebView(urlString: urlStr)
+                .frame(height: bodyMaxHeight)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
         }
-        // Email / no-HTML: plain text + quoted toggle — now height-capped too.
+        // Branch 3 — Rich HTML from feed → StructuredText
+        else if let html = item.contentHTML,
+                html.range(of: "<[a-zA-Z]", options: .regularExpression) != nil {
+            let baseURL = item.linkURLString.flatMap { URL(string: $0) }
+            CardBody(
+                content: StructuredText(
+                    markdown: FeedItemRecord.htmlToMarkdown(from: html),
+                    baseURL: baseURL
+                )
+                .frame(maxWidth: 700)
+                .textual.blockSpacing(StructuredText.BlockSpacing(top: 2, bottom: 6))
+                .textual.lineSpacing(.fontScaled(0.45))
+                .textual.imageAttachmentLoader(.image(relativeTo: baseURL)),
+                maxHeight: bodyMaxHeight
+            )
+        }
+        // Branch 4 — Auto-fetched markdown (link-only or plain-text-teaser feeds)
+        else if let markdown = autoFetchedMarkdown {
+            let baseURL = item.linkURLString.flatMap { URL(string: $0) }
+            CardBody(
+                content: StructuredText(markdown: markdown, baseURL: baseURL)
+                    .frame(maxWidth: 700)
+                    .textual.blockSpacing(StructuredText.BlockSpacing(top: 2, bottom: 6))
+                    .textual.lineSpacing(.fontScaled(0.45))
+                    .textual.imageAttachmentLoader(.image(relativeTo: baseURL)),
+                maxHeight: bodyMaxHeight
+            )
+        }
+        // Branch 5 — Loading indicator while auto-fetch is in flight
+        else if isAutoFetching {
+            CardBody(
+                content: HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Loading article…").font(.body).foregroundStyle(.secondary)
+                },
+                maxHeight: bodyMaxHeight
+            )
+        }
+        // Branch 6 — Email / plain-text fallback: quoted-text toggle
         else {
             CardBody(
                 content: VStack(alignment: .leading, spacing: 8) {
@@ -222,8 +277,9 @@ struct PostCardView: View {
         HStack(spacing: 16) {
             Spacer()
 
-            // Looking Glass — toggles inline WebView vs markdown for feed articles
-            if item.contentHTML != nil, item.linkURLString != nil {
+            // Looking Glass — toggles inline WebView for any non-YouTube feed link
+            if let linkStr = item.linkURLString,
+               FeedItemRecord.youTubeVideoID(from: linkStr) == nil {
                 Button { isWebViewLoaded.toggle() } label: {
                     Label(
                         isWebViewLoaded ? "Markdown" : "Looking Glass",
