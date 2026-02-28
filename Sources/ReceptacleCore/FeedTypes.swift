@@ -130,11 +130,21 @@ extension FeedItemRecord {
 
     /// Converts an HTML string to Markdown using a sequential replacement pipeline.
     ///
-    /// Designed for RSS/Atom/JSON feed content. Images are stripped (visible via
-    /// Looking Glass WebView). The pipeline order is critical — block-level
-    /// conversions happen before inline, and tag stripping happens last.
+    /// Designed for RSS/Atom/JSON feed content. The pipeline order is critical —
+    /// comment stripping happens first, then block-level conversions, then inline,
+    /// then tag stripping and whitespace cleanup last.
     public static func htmlToMarkdown(from html: String) -> String {
         var result = html
+
+        // 0. Strip HTML comments (handles <!-- single-line -->, <!-- multi-line -->,
+        //    and Outlook conditional <!--[if ...]>…<![endif]--> patterns).
+        //    Must run before the char-by-char tag scanner (step 13) which can
+        //    split multi-line comments and leave lone `[` or `-->` artifacts.
+        let commentPattern = "<!--[\\s\\S]*?-->"
+        if let re = try? NSRegularExpression(pattern: commentPattern, options: []) {
+            result = re.stringByReplacingMatches(in: result,
+                range: NSRange(result.startIndex..., in: result), withTemplate: "")
+        }
 
         // 1. Strip <script>…</script> and <style>…</style> blocks with content
         let blockPattern = "<(script|style)[^>]*>[\\s\\S]*?</(script|style)>"
@@ -174,8 +184,12 @@ extension FeedItemRecord {
             result = result.replacingOccurrences(of: close, with: "\n\n", options: .caseInsensitive)
         }
 
-        // 5. Links: <a href="URL">text</a> → [text](URL)
-        let linkPattern = "<a[^>]+href=\"([^\"]*)\"[^>]*>(.*?)</a>"
+        // 5. Links: <a href="URL">text</a> or <a href='URL'>text</a> → [text](URL)
+        //    Two alternatives in one pattern: groups (1,2) = double-quoted href+content;
+        //    groups (3,4) = single-quoted href+content.
+        let linkPattern =
+            #"<a[^>]+href="([^"]*)"[^>]*>([\s\S]*?)</a>"# +
+            #"|<a[^>]+href='([^']*)'[^>]*>([\s\S]*?)</a>"#
         if let re = try? NSRegularExpression(pattern: linkPattern,
                                               options: [.caseInsensitive, .dotMatchesLineSeparators]) {
             let ns = result as NSString
@@ -184,10 +198,8 @@ extension FeedItemRecord {
             let matches = re.matches(in: result, range: NSRange(location: 0, length: ns.length))
             for m in matches {
                 out += ns.substring(with: NSRange(location: lastEnd, length: m.range.location - lastEnd))
-                let href = m.range(at: 1).location != NSNotFound
-                    ? ns.substring(with: m.range(at: 1)) : ""
-                let text = m.range(at: 2).location != NSNotFound
-                    ? ns.substring(with: m.range(at: 2)) : ""
+                let href = firstNonEmpty(ns, m, at: 1, 3)
+                let text = firstNonEmpty(ns, m, at: 2, 4)
                 out += "[\(text)](\(href))"
                 lastEnd = m.range.location + m.range.length
             }
@@ -233,10 +245,34 @@ extension FeedItemRecord {
                 range: NSRange(result.startIndex..., in: result), withTemplate: "\n\n---\n\n")
         }
 
-        // 12. Strip images (visible in Looking Glass instead)
-        if let re = try? NSRegularExpression(pattern: "<img[^>]*>", options: [.caseInsensitive]) {
-            result = re.stringByReplacingMatches(in: result,
-                range: NSRange(result.startIndex..., in: result), withTemplate: "")
+        // 12. Convert <img> to markdown inline images; skip tracking pixels (w=1 or h=1).
+        //     Images with no alt text use empty alt: ![](src).
+        //     This runs after the link step so <a href='u'><img src='x' alt='y'/></a>
+        //     first becomes [<img src='x' alt='y'/>](u), then this step converts the img
+        //     inside the brackets, producing [![y](x)](u) — a linked image.
+        if let imgRe = try? NSRegularExpression(pattern: "<img[^>]*>", options: [.caseInsensitive]) {
+            let ns = result as NSString
+            var out = ""
+            var lastEnd = 0
+            let matches = imgRe.matches(in: result, range: NSRange(location: 0, length: ns.length))
+            for m in matches {
+                let tagStr = ns.substring(with: m.range)
+                out += ns.substring(with: NSRange(location: lastEnd, length: m.range.location - lastEnd))
+                // Skip tracking pixels: any img with width="1"/'1' or height="1"/'1'
+                let pixelPattern = #"\b(?:width|height)=["']1["']"#
+                let isTrackingPixel = (try? NSRegularExpression(pattern: pixelPattern, options: [.caseInsensitive]))?
+                    .firstMatch(in: tagStr, range: NSRange(tagStr.startIndex..., in: tagStr)) != nil
+                if !isTrackingPixel {
+                    let src = extractAttr("src", from: tagStr)
+                    let alt = extractAttr("alt", from: tagStr) ?? ""
+                    if let src = src {
+                        out += "![\(alt)](\(src))"
+                    }
+                }
+                lastEnd = m.range.location + m.range.length
+            }
+            out += ns.substring(from: lastEnd)
+            result = out
         }
 
         // 13. Strip remaining HTML tags
@@ -244,6 +280,16 @@ extension FeedItemRecord {
               let end = result.range(of: ">", range: start.upperBound..<result.endIndex) {
             result.removeSubrange(start.lowerBound..<end.upperBound)
         }
+
+        // 13.5 Strip leading whitespace left by HTML table/cell/div structure.
+        //      4+ leading spaces trigger Markdown indented code-block rendering.
+        //      Lines inside ``` fences are preserved so code indentation is not lost.
+        var inFence = false
+        result = result.components(separatedBy: "\n").map { line in
+            if line.trimmingCharacters(in: .whitespaces) == "```" { inFence.toggle() }
+            guard !inFence else { return line }
+            return String(line.drop(while: { $0 == " " || $0 == "\t" }))
+        }.joined(separator: "\n")
 
         // 14. Decode HTML entities
         let entities: [(String, String)] = [
@@ -263,6 +309,31 @@ extension FeedItemRecord {
 
         // 16. Trim
         return result.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    // MARK: - Private pipeline helpers
+
+    /// Returns the value from the first capture group (by index) in `m` that was
+    /// actually captured (range.location != NSNotFound). Used by the two-alternative
+    /// link regex to coalesce double-quoted and single-quoted href/content groups.
+    private static func firstNonEmpty(_ ns: NSString, _ m: NSTextCheckingResult, at groups: Int...) -> String {
+        for g in groups {
+            let r = m.range(at: g)
+            if r.location != NSNotFound {
+                return ns.substring(with: r)
+            }
+        }
+        return ""
+    }
+
+    /// Extracts the value of an HTML attribute from a tag string (e.g. the `src` from
+    /// `<img src="x.png" alt="photo">`). Handles both double and single quotes.
+    private static func extractAttr(_ attr: String, from tag: String) -> String? {
+        let pattern = "\\b" + NSRegularExpression.escapedPattern(for: attr) + #"=["']([^"']+)["']"#
+        guard let re = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
+              let m = re.firstMatch(in: tag, range: NSRange(tag.startIndex..., in: tag)),
+              m.range(at: 1).location != NSNotFound else { return nil }
+        return (tag as NSString).substring(with: m.range(at: 1))
     }
 
     /// Extracts a YouTube video ID from a `youtube.com/watch?v=` URL, or nil
