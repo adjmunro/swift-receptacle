@@ -336,6 +336,35 @@ extension FeedItemRecord {
         return (tag as NSString).substring(with: m.range(at: 1))
     }
 
+    /// Extracts the main article body from a full HTML page, stripping navigation
+    /// chrome. Tries <article>, then <main>, then <body>. Always strips <nav>,
+    /// <header>, <footer>, <aside>, <script>, <style> before extraction.
+    public static func articleBodyHTML(from pageHTML: String) -> String {
+        var html = pageHTML
+
+        // Strip noise blocks with their content
+        let noise = "<(script|style|nav|header|footer|aside)[^>]*>[\\s\\S]*?</(script|style|nav|header|footer|aside)>"
+        if let re = try? NSRegularExpression(pattern: noise, options: [.caseInsensitive]) {
+            html = re.stringByReplacingMatches(in: html,
+                range: NSRange(html.startIndex..., in: html), withTemplate: "")
+        }
+
+        // Try <article>, then <main>, then <body>
+        for tag in ["article", "main", "body"] {
+            if let content = extractTagContent(tag, from: html) { return content }
+        }
+        return html
+    }
+
+    private static func extractTagContent(_ tag: String, from html: String) -> String? {
+        let pattern = "<\(tag)[^>]*>([\\s\\S]*?)</\(tag)>"
+        guard let re = try? NSRegularExpression(pattern: pattern,
+                                                 options: [.caseInsensitive, .dotMatchesLineSeparators]),
+              let m = re.firstMatch(in: html, range: NSRange(html.startIndex..., in: html)),
+              m.range(at: 1).location != NSNotFound else { return nil }
+        return (html as NSString).substring(with: m.range(at: 1))
+    }
+
     /// Extracts a YouTube video ID from a `youtube.com/watch?v=` URL, or nil
     /// for any other URL. Centralised here so it can be unit-tested independently
     /// of the view layer.
