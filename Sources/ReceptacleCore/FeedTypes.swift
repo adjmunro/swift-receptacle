@@ -77,6 +77,19 @@ public struct FeedItemRecord: Item, Sendable {
     }
 }
 
+// MARK: - FeedFormat helpers
+
+extension FeedFormat {
+    /// Human-readable label used in badges and displays.
+    public var displayName: String {
+        switch self {
+        case .rss:  return "RSS"
+        case .atom: return "Atom"
+        case .json: return "JSON Feed"
+        }
+    }
+}
+
 // MARK: - FeedItemRecord factory helpers
 
 extension FeedItemRecord {
@@ -113,5 +126,209 @@ extension FeedItemRecord {
             .filter { !$0.isEmpty }
         let joined = words.joined(separator: " ")
         return joined.count <= maxLength ? joined : String(joined.prefix(maxLength)) + "…"
+    }
+
+    /// Converts an HTML string to Markdown using a sequential replacement pipeline.
+    ///
+    /// Designed for RSS/Atom/JSON feed content. Images are stripped (visible via
+    /// Looking Glass WebView). The pipeline order is critical — block-level
+    /// conversions happen before inline, and tag stripping happens last.
+    public static func htmlToMarkdown(from html: String) -> String {
+        var result = html
+
+        // 1. Strip <script>…</script> and <style>…</style> blocks with content
+        let blockPattern = "<(script|style)[^>]*>[\\s\\S]*?</(script|style)>"
+        if let re = try? NSRegularExpression(pattern: blockPattern, options: [.caseInsensitive]) {
+            let range = NSRange(result.startIndex..., in: result)
+            result = re.stringByReplacingMatches(in: result, range: range, withTemplate: "")
+        }
+
+        // 2. <pre>…<code> blocks
+        let preCodeOpen = "<pre[^>]*>\\s*<code[^>]*>"
+        if let re = try? NSRegularExpression(pattern: preCodeOpen, options: [.caseInsensitive]) {
+            result = re.stringByReplacingMatches(in: result,
+                range: NSRange(result.startIndex..., in: result), withTemplate: "\n```\n")
+        }
+        let codePreClose = "</code>\\s*</pre>"
+        if let re = try? NSRegularExpression(pattern: codePreClose, options: [.caseInsensitive]) {
+            result = re.stringByReplacingMatches(in: result,
+                range: NSRange(result.startIndex..., in: result), withTemplate: "\n```\n")
+        }
+
+        // 3. Standalone <pre> / </pre>
+        result = result.replacingOccurrences(of: "<pre>",  with: "\n```\n", options: .caseInsensitive)
+        result = result.replacingOccurrences(of: "</pre>", with: "\n```\n", options: .caseInsensitive)
+
+        // 4. Headings
+        let headings: [(String, String)] = [
+            ("<h1[^>]*>", "\n\n# "), ("<h2[^>]*>", "\n\n## "), ("<h3[^>]*>", "\n\n### "),
+            ("<h4[^>]*>", "\n\n#### "), ("<h5[^>]*>", "\n\n##### "), ("<h6[^>]*>", "\n\n###### "),
+        ]
+        for (pattern, replacement) in headings {
+            if let re = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) {
+                result = re.stringByReplacingMatches(in: result,
+                    range: NSRange(result.startIndex..., in: result), withTemplate: replacement)
+            }
+        }
+        for close in ["</h1>","</h2>","</h3>","</h4>","</h5>","</h6>"] {
+            result = result.replacingOccurrences(of: close, with: "\n\n", options: .caseInsensitive)
+        }
+
+        // 5. Links: <a href="URL">text</a> → [text](URL)
+        let linkPattern = "<a[^>]+href=\"([^\"]*)\"[^>]*>(.*?)</a>"
+        if let re = try? NSRegularExpression(pattern: linkPattern,
+                                              options: [.caseInsensitive, .dotMatchesLineSeparators]) {
+            let ns = result as NSString
+            var out = ""
+            var lastEnd = 0
+            let matches = re.matches(in: result, range: NSRange(location: 0, length: ns.length))
+            for m in matches {
+                out += ns.substring(with: NSRange(location: lastEnd, length: m.range.location - lastEnd))
+                let href = m.range(at: 1).location != NSNotFound
+                    ? ns.substring(with: m.range(at: 1)) : ""
+                let text = m.range(at: 2).location != NSNotFound
+                    ? ns.substring(with: m.range(at: 2)) : ""
+                out += "[\(text)](\(href))"
+                lastEnd = m.range.location + m.range.length
+            }
+            out += ns.substring(from: lastEnd)
+            result = out
+        }
+
+        // 6. Bold / italic
+        for tag in ["<strong>","</strong>","<b>","</b>"] {
+            result = result.replacingOccurrences(of: tag, with: "**", options: .caseInsensitive)
+        }
+        for tag in ["<em>","</em>","<i>","</i>"] {
+            result = result.replacingOccurrences(of: tag, with: "_", options: .caseInsensitive)
+        }
+
+        // 7. Inline code
+        result = result.replacingOccurrences(of: "<code>",  with: "`", options: .caseInsensitive)
+        result = result.replacingOccurrences(of: "</code>", with: "`", options: .caseInsensitive)
+
+        // 8. Blockquote
+        result = result.replacingOccurrences(of: "<blockquote>",  with: "\n> ", options: .caseInsensitive)
+        result = result.replacingOccurrences(of: "</blockquote>", with: "\n",   options: .caseInsensitive)
+
+        // 9. Lists
+        result = result.replacingOccurrences(of: "<li>",  with: "\n- ", options: .caseInsensitive)
+        for tag in ["</li>","<ul>","</ul>","<ol>","</ol>"] {
+            result = result.replacingOccurrences(of: tag, with: "\n", options: .caseInsensitive)
+        }
+
+        // 10. Paragraphs / line breaks
+        if let re = try? NSRegularExpression(pattern: "<p[^>]*>", options: [.caseInsensitive]) {
+            result = re.stringByReplacingMatches(in: result,
+                range: NSRange(result.startIndex..., in: result), withTemplate: "\n\n")
+        }
+        result = result.replacingOccurrences(of: "</p>",   with: "\n\n", options: .caseInsensitive)
+        for br in ["<br />","<br/>","<br>"] {
+            result = result.replacingOccurrences(of: br, with: "\n", options: .caseInsensitive)
+        }
+
+        // 11. Horizontal rule
+        if let re = try? NSRegularExpression(pattern: "<hr[^>]*>", options: [.caseInsensitive]) {
+            result = re.stringByReplacingMatches(in: result,
+                range: NSRange(result.startIndex..., in: result), withTemplate: "\n\n---\n\n")
+        }
+
+        // 12. Strip images (visible in Looking Glass instead)
+        if let re = try? NSRegularExpression(pattern: "<img[^>]*>", options: [.caseInsensitive]) {
+            result = re.stringByReplacingMatches(in: result,
+                range: NSRange(result.startIndex..., in: result), withTemplate: "")
+        }
+
+        // 13. Strip remaining HTML tags
+        while let start = result.range(of: "<"),
+              let end = result.range(of: ">", range: start.upperBound..<result.endIndex) {
+            result.removeSubrange(start.lowerBound..<end.upperBound)
+        }
+
+        // 14. Decode HTML entities
+        let entities: [(String, String)] = [
+            ("&amp;",   "&"),  ("&lt;",  "<"),  ("&gt;",  ">"),
+            ("&nbsp;",  " "),  ("&quot;", "\""), ("&#39;", "'"),
+            ("&mdash;", "—"),  ("&ndash;", "–"), ("&hellip;", "…"),
+        ]
+        for (entity, char) in entities {
+            result = result.replacingOccurrences(of: entity, with: char)
+        }
+
+        // 15. Collapse 3+ consecutive newlines → double newline
+        if let re = try? NSRegularExpression(pattern: "\\n{3,}") {
+            result = re.stringByReplacingMatches(in: result,
+                range: NSRange(result.startIndex..., in: result), withTemplate: "\n\n")
+        }
+
+        // 16. Trim
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Extracts a YouTube video ID from a `youtube.com/watch?v=` URL, or nil
+    /// for any other URL. Centralised here so it can be unit-tested independently
+    /// of the view layer.
+    public static func youTubeVideoID(from urlString: String) -> String? {
+        guard let url = URL(string: urlString),
+              let host = url.host,
+              host.contains("youtube.com"),
+              let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems
+        else { return nil }
+        return items.first(where: { $0.name == "v" })?.value
+    }
+
+    /// Builds a minimal HTML page that loads a YouTube video via the IFrame
+    /// Player API. Using the API (rather than a bare `<iframe src=...>`) avoids
+    /// Error 152-4 / MEDIA_ERR_SRC_NOT_SUPPORTED that occurs in WKWebView when
+    /// YouTube detects the embed context via the src attribute alone.
+    ///
+    /// `overflow: hidden` on both `html` and `body` prevents the inner WebView
+    /// from being scrollable (the iOS `scrollView` must also be disabled by the
+    /// caller). `baseURL` must be set to `https://www.youtube.com` when loading
+    /// this HTML so that YouTube accepts the origin.
+    public static func youTubeEmbedHTML(videoID: String, autoplay: Bool = true) -> String {
+        let autoplayValue = autoplay ? 1 : 0
+        // The watch URL is embedded literally so the WKNavigationDelegate can
+        // intercept a linkActivated event and open it in the system browser.
+        let watchURL = "https://www.youtube.com/watch?v=\(videoID)"
+        return """
+        <!DOCTYPE html>
+        <html><head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+        <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
+        #player { width: 100%; height: 100%; }
+        .error { display: flex; height: 100%; align-items: center; justify-content: center; }
+        .error-inner { color: #fff; font-family: system-ui; text-align: center; padding: 20px; }
+        .error-inner p { margin: 0 0 12px; opacity: 0.7; font-size: 14px; }
+        .error-inner a { color: #60aaff; text-decoration: none; font-size: 15px; }
+        </style>
+        </head><body>
+        <div id="player"></div>
+        <script>
+        var tag = document.createElement('script');
+        tag.src = 'https://www.youtube.com/iframe_api';
+        document.head.appendChild(tag);
+        var player;
+        function onYouTubeIframeAPIReady() {
+            player = new YT.Player('player', {
+                videoId: '\(videoID)',
+                playerVars: {
+                    'autoplay': \(autoplayValue),
+                    'playsinline': 1,
+                    'rel': 0,
+                    'modestbranding': 1
+                },
+                events: {
+                    'onError': function(e) {
+                        document.body.innerHTML = '<div class="error"><div class="error-inner"><p>This video cannot be played here.</p><a href="\(watchURL)">▶ Watch on YouTube</a></div></div>';
+                    }
+                }
+            });
+        }
+        </script>
+        </body></html>
+        """
     }
 }
