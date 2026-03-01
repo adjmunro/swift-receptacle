@@ -124,7 +124,7 @@ struct PostCardView: View {
               let pageHTML = String(data: data, encoding: .utf8)
                           ?? String(data: data, encoding: .isoLatin1) else { return }
         let body = FeedItemRecord.articleBodyHTML(from: pageHTML)
-        let markdown = FeedItemRecord.htmlToMarkdown(from: body)
+        let markdown = FeedItemRecord.htmlToMarkdown(from: body, stripsImages: true)
         let trimmed = markdown.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.isEmpty { autoFetchedMarkdown = trimmed }
     }
@@ -226,14 +226,14 @@ struct PostCardView: View {
             )
         }
         // Branch 4 — Auto-fetched markdown (link-only or plain-text-teaser feeds)
+        // Images are stripped at fetch time (stripsImages: true), so no loader needed.
         else if let markdown = autoFetchedMarkdown {
             let baseURL = item.linkURLString.flatMap { URL(string: $0) }
             CardBody(
                 content: StructuredText(markdown: markdown, baseURL: baseURL)
                     .frame(maxWidth: 700)
                     .textual.blockSpacing(StructuredText.BlockSpacing(top: 2, bottom: 6))
-                    .textual.lineSpacing(.fontScaled(0.45))
-                    .textual.imageAttachmentLoader(.image(relativeTo: baseURL)),
+                    .textual.lineSpacing(.fontScaled(0.45)),
                 maxHeight: bodyMaxHeight
             )
         }
