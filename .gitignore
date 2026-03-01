@@ -1,3 +1,8 @@
+# Local AI assistant files (symlinks, not tracked)
+CLAUDE.md
+.CLAUDE.md.swp
+*.swp
+
 # Xcode
 *.xcodeproj/xcuserdata/
 *.xcworkspace/xcuserdata/
