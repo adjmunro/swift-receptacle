@@ -1,0 +1,8 @@
+- Every action should start by breaking the task down into discrete and verifiable steps. 
+- Create beads tickets for all planned steps.
+- This is a TDD based project. Write tests first.
+- Use peekaboo to verify GUI changes. Make sure the process is correctly killed and recompiled/restarted to avoid verifying against old code.
+- After completing a step and confirming it works, verify it against the beads ticket requirements and mark the ticket as complete.
+- Commit each step when complete & funcitonal. Push when all requests are complete.
+- Do not group multiple steps into a single commit.
+- If you encounter something non-trival that took you a long time to realise, record it here for posterity.
