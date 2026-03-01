@@ -80,14 +80,15 @@ public actor FeedSource: MessageSource {
         (rssFeed.items ?? []).compactMap { item -> FeedItemRecord? in
             guard let date = item.pubDate else { return nil }
             let guid = item.guid?.value ?? item.link ?? UUID().uuidString
-            let html = item.content?.contentEncoded ?? item.description ?? ""
+            let rawHTML = item.content?.contentEncoded ?? item.description
+            let html = (rawHTML?.isEmpty == false) ? rawHTML : nil
             return FeedItemRecord(
                 id:          FeedItemRecord.makeId(feedId: config.feedId, guid: guid),
                 entityId:    config.entityId,
                 sourceId:    config.feedId,
                 date:        date,
                 title:       item.title ?? "(Untitled)",
-                summary:     FeedItemRecord.plainSummary(from: html),
+                summary:     FeedItemRecord.plainSummary(from: html ?? ""),
                 linkURL:     item.link,
                 contentHTML: html,
                 format:      .rss
@@ -97,9 +98,19 @@ public actor FeedSource: MessageSource {
 
     private func mapAtom(_ atomFeed: AtomFeed) -> [FeedItemRecord] {
         (atomFeed.entries ?? []).compactMap { entry -> FeedItemRecord? in
-            guard let date = entry.updated ?? entry.published else { return nil }
+            // Prefer `published` (original release date) over `updated` (last-modified).
+            // YouTube Atom feeds update <updated> on every comment/like, making all
+            // videos appear as "just posted". Using <published> gives the correct date.
+            guard let date = entry.published ?? entry.updated else { return nil }
             let link = entry.links?.first(where: { $0.attributes?.rel == "alternate" })?.attributes?.href
-            let html = entry.content?.value ?? entry.summary?.value ?? ""
+
+            // FeedKit limitation: Atom entries have no parsed path for
+            // media:description (including inside media:group). YouTube-style feeds
+            // that rely on this field will have nil contentHTML — the inline
+            // YouTubePlayerView is the primary content for those items.
+            let raw = entry.content?.value ?? entry.summary?.value
+            let html: String? = (raw?.isEmpty == false) ? raw : nil
+
             return FeedItemRecord(
                 id:          FeedItemRecord.makeId(feedId: config.feedId,
                                                    guid: entry.id ?? link ?? UUID().uuidString),
@@ -107,7 +118,7 @@ public actor FeedSource: MessageSource {
                 sourceId:    config.feedId,
                 date:        date,
                 title:       entry.title ?? "(Untitled)",
-                summary:     FeedItemRecord.plainSummary(from: html),
+                summary:     FeedItemRecord.plainSummary(from: html ?? ""),
                 linkURL:     link,
                 contentHTML: html,
                 format:      .atom

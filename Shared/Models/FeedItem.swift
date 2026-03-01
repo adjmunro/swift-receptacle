@@ -14,6 +14,7 @@ final class FeedItem {
     var date: Date
 
     var title: String
+    var feedFormat: FeedFormat?
     var contentHTML: String?
     var linkURLString: String?
     var authorName: String?
@@ -33,6 +34,7 @@ final class FeedItem {
         sourceId: String,
         date: Date,
         title: String,
+        feedFormat: FeedFormat? = nil,
         contentHTML: String? = nil,
         linkURLString: String? = nil,
         authorName: String? = nil,
@@ -43,6 +45,7 @@ final class FeedItem {
         self.sourceId = sourceId
         self.date = date
         self.title = title
+        self.feedFormat = feedFormat
         self.contentHTML = contentHTML
         self.linkURLString = linkURLString
         self.authorName = authorName

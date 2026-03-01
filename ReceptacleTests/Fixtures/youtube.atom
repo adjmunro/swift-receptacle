@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015"
+      xmlns:media="http://search.yahoo.com/mrss/"
+      xmlns="http://www.w3.org/2005/Atom">
+  <id>yt:channel:UCnUYZLuoy1rq1aVMwx4aTzw</id>
+  <yt:channelId>UCnUYZLuoy1rq1aVMwx4aTzw</yt:channelId>
+  <title>Theo - t3.gg</title>
+  <link rel="self" href="https://www.youtube.com/feeds/videos.xml?channel_id=UCnUYZLuoy1rq1aVMwx4aTzw"/>
+  <author>
+    <name>Theo - t3.gg</name>
+    <uri>https://www.youtube.com/channel/UCnUYZLuoy1rq1aVMwx4aTzw</uri>
+  </author>
+
+  <entry>
+    <id>yt:video:dQw4w9WgXcQ</id>
+    <yt:videoId>dQw4w9WgXcQ</yt:videoId>
+    <yt:channelId>UCnUYZLuoy1rq1aVMwx4aTzw</yt:channelId>
+    <title>TypeScript is better than you think</title>
+    <link rel="alternate" href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"/>
+    <author>
+      <name>Theo - t3.gg</name>
+      <uri>https://www.youtube.com/channel/UCnUYZLuoy1rq1aVMwx4aTzw</uri>
+    </author>
+    <published>2025-09-01T18:00:00+00:00</published>
+    <updated>2025-09-01T18:30:00+00:00</updated>
+    <media:group>
+      <media:title>TypeScript is better than you think</media:title>
+      <media:content url="https://www.youtube.com/v/dQw4w9WgXcQ?version=3"
+                     type="application/x-shockwave-flash" width="640" height="390"/>
+      <media:thumbnail url="https://i4.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg"
+                       width="480" height="360"/>
+      <media:description>A deep dive into why TypeScript's type system is more powerful than most developers realise.</media:description>
+      <media:community>
+        <media:starRating count="1234" average="5.00" min="1" max="5"/>
+        <media:statistics views="45678"/>
+      </media:community>
+    </media:group>
+  </entry>
+
+  <entry>
+    <id>yt:video:abc123xyz00</id>
+    <yt:videoId>abc123xyz00</yt:videoId>
+    <yt:channelId>UCnUYZLuoy1rq1aVMwx4aTzw</yt:channelId>
+    <title>Why I switched from Next.js to Remix</title>
+    <link rel="alternate" href="https://www.youtube.com/watch?v=abc123xyz00"/>
+    <author>
+      <name>Theo - t3.gg</name>
+      <uri>https://www.youtube.com/channel/UCnUYZLuoy1rq1aVMwx4aTzw</uri>
+    </author>
+    <published>2025-08-15T16:00:00+00:00</published>
+    <updated>2025-08-15T16:00:00+00:00</updated>
+    <media:group>
+      <media:title>Why I switched from Next.js to Remix</media:title>
+      <media:content url="https://www.youtube.com/v/abc123xyz00?version=3"
+                     type="application/x-shockwave-flash" width="640" height="390"/>
+      <media:thumbnail url="https://i4.ytimg.com/vi/abc123xyz00/hqdefault.jpg"
+                       width="480" height="360"/>
+      <media:description>Exploring the reasons behind switching from Next.js to Remix for T3 Stack projects.</media:description>
+    </media:group>
+  </entry>
+
+</feed>
