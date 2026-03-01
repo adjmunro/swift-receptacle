@@ -127,4 +127,15 @@ struct HtmlToMarkdownTests {
         #expect(!md.contains("[](https://example.com)"), "Empty link [](url) artifact must not appear")
         #expect(md.contains("(https://example.com)"))
     }
+
+    // MARK: stripsImages parameter
+
+    @Test("stripsImages:true removes all image markdown")
+    func htmlToMarkdownStripsImages() {
+        let html = #"<p>Hello</p><img src="photo.jpg" alt="me"><p>World</p>"#
+        let md = FeedItemRecord.htmlToMarkdown(from: html, stripsImages: true)
+        #expect(!md.contains("!["))
+        #expect(md.contains("Hello"))
+        #expect(md.contains("World"))
+    }
 }

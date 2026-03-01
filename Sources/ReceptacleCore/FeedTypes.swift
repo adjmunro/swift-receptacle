@@ -133,7 +133,7 @@ extension FeedItemRecord {
     /// Designed for RSS/Atom/JSON feed content. The pipeline order is critical —
     /// comment stripping happens first, then block-level conversions, then inline,
     /// then tag stripping and whitespace cleanup last.
-    public static func htmlToMarkdown(from html: String) -> String {
+    public static func htmlToMarkdown(from html: String, stripsImages: Bool = false) -> String {
         var result = html
 
         // 0. Strip HTML comments (handles <!-- single-line -->, <!-- multi-line -->,
@@ -250,7 +250,9 @@ extension FeedItemRecord {
         //     This runs after the link step so <a href='u'><img src='x' alt='y'/></a>
         //     first becomes [<img src='x' alt='y'/>](u), then this step converts the img
         //     inside the brackets, producing [![y](x)](u) — a linked image.
-        if let imgRe = try? NSRegularExpression(pattern: "<img[^>]*>", options: [.caseInsensitive]) {
+        //     When stripsImages is true the entire step is skipped; remaining <img> tags
+        //     are removed in step 13 along with all other unrecognised tags.
+        if !stripsImages, let imgRe = try? NSRegularExpression(pattern: "<img[^>]*>", options: [.caseInsensitive]) {
             let ns = result as NSString
             var out = ""
             var lastEnd = 0
