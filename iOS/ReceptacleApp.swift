@@ -44,6 +44,7 @@ struct IOSRootView: View {
             EntityListView()
                 .navigationDestination(for: Entity.self) { entity in
                     PostFeedView(entity: entity)
+                        .id(entity.id.uuidString)
                 }
         }
     }

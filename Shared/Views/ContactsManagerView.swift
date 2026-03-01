@@ -121,6 +121,8 @@ struct ContactDetailView: View {
     @State private var showDeleteConfirm = false
     @State private var associatedEntity: Entity? = nil
     @State private var showCopiedToast = false
+    @State private var isSyncing = false
+    @State private var isDeleted = false
 
     private var navigationTitle: String {
         contact.type == .feed ? "Edit Feed" : "Edit Contact"
@@ -132,6 +134,7 @@ struct ContactDetailView: View {
 
     var body: some View {
         NavigationStack {
+            if !isDeleted {
             Form {
                 // Identity
                 Section("Identity") {
@@ -177,6 +180,41 @@ struct ContactDetailView: View {
                     FeedSettingsSection(entity: entity)
                 }
 
+                // Sync actions — feed contacts only
+                if contact.type == .feed, let config = feedConfig {
+                    Section {
+                        Button {
+                            Task {
+                                isSyncing = true
+                                await FeedSyncService.syncFeedForced(config: config, context: modelContext)
+                                isSyncing = false
+                            }
+                        } label: {
+                            Label("Sync Now", systemImage: "arrow.clockwise")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .disabled(isSyncing)
+
+                        Button(role: .destructive) {
+                            Task {
+                                isSyncing = true
+                                await FeedSyncService.clearAndSyncFeed(config: config, context: modelContext)
+                                isSyncing = false
+                            }
+                        } label: {
+                            Label("Clear Cache & Sync", systemImage: "arrow.clockwise.circle")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .disabled(isSyncing)
+                    } footer: {
+                        if isSyncing {
+                            Label("Syncing…", systemImage: "arrow.clockwise")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
                 // Delete
                 Section {
                     Button(role: .destructive) {
@@ -209,6 +247,7 @@ struct ContactDetailView: View {
                     ? "This will remove the feed subscription and all its cached articles."
                     : "This will permanently delete this contact.")
             }
+            } // end if !isDeleted
         }
         .overlay(alignment: .top) {
             if showCopiedToast {
@@ -227,6 +266,19 @@ struct ContactDetailView: View {
 #if os(macOS)
         .frame(minWidth: 420, idealWidth: 480, minHeight: 440)
 #endif
+    }
+
+    private var feedConfig: FeedConfig? {
+        guard contact.type == .feed,
+              let entity = associatedEntity,
+              let urlStr = contact.sourceIdentifiers.first(where: { $0.type == .rss })?.value
+        else { return nil }
+        return FeedConfig(
+            feedId: contact.id.uuidString,
+            displayName: contact.displayName,
+            feedURLString: urlStr,
+            entityId: entity.id.uuidString
+        )
     }
 
     private func copyToClipboard(_ string: String) {
@@ -251,6 +303,7 @@ struct ContactDetailView: View {
     }
 
     private func deleteContact() {
+        isDeleted = true
         let contactIdStr = contact.id.uuidString
         if let entities = try? modelContext.fetch(FetchDescriptor<Entity>()) {
             for entity in entities where entity.contactIds.contains(contactIdStr) {
@@ -280,7 +333,7 @@ private struct FeedSettingsSection: View {
     @Query(sort: \Tag.name) private var allTags: [Tag]
 
     @State private var retentionKind: RetentionKind = .keepLatest
-    @State private var retentionCount: Int = 50
+    @State private var retentionCount: Int = 5
 
     var body: some View {
         Section("Feed Settings") {
@@ -306,13 +359,15 @@ private struct FeedSettingsSection: View {
 
             // Associated count (shown only when the policy needs one)
             if retentionKind.needsCount {
-                Stepper(
-                    retentionKind == .keepLatest
-                        ? "\(retentionCount) items"
-                        : "\(retentionCount) days",
-                    value: $retentionCount,
-                    in: 1...9999
-                )
+                LabeledContent(retentionKind == .keepLatest ? "Items to keep" : "Days to keep") {
+                    HStack(spacing: 4) {
+                        TextField("", value: $retentionCount, format: .number)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 56)
+                        Stepper("", value: $retentionCount, in: 1...9999)
+                            .labelsHidden()
+                    }
+                }
                 .onChange(of: retentionCount) { _, new in
                     entity.retentionPolicy = .make(kind: retentionKind, count: new)
                 }
@@ -366,11 +421,11 @@ private enum RetentionKind: String, CaseIterable {
 }
 
 private extension RetentionPolicy {
-    /// Returns the associated integer for `.keepLatest` / `.keepDays`, defaulting to 50.
+    /// Returns the associated integer for `.keepLatest` / `.keepDays`, defaulting to 5.
     var associatedCount: Int {
         switch self {
         case .keepLatest(let n), .keepDays(let n): return n
-        default: return 50
+        default: return 5
         }
     }
 
@@ -396,7 +451,7 @@ extension ContactType {
         case .newsletter: "Newsletter"
         case .transactional: "Transactional"
         case .automated: "Automated"
-        case .feed: "RSS Feed"
+        case .feed: "Feed"
         }
     }
 

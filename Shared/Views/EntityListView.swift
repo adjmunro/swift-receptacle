@@ -22,9 +22,11 @@ import Receptacle
 ///   provides `.navigationDestination` to push `PostFeedView`.
 struct EntityListView: View {
     @Query private var entities: [Entity]
+    @Query private var allContacts: [Contact]
 
     @State private var showingFeeds    = false
     @State private var showingContacts = false
+    @State private var editingContact: Contact? = nil
     @Environment(\.modelContext) private var modelContext
 
     // MARK: Computed
@@ -37,12 +39,55 @@ struct EntityListView: View {
         }
     }
 
+    // MARK: Helpers
+
+    private func feedContact(for entity: Entity) -> Contact? {
+        allContacts.first { $0.type == .feed && entity.contactIds.contains($0.id.uuidString) }
+    }
+
+    private func feedConfig(for entity: Entity) -> FeedConfig? {
+        guard let contact = feedContact(for: entity),
+              let urlStr = contact.sourceIdentifiers.first(where: { $0.type == .rss })?.value
+        else { return nil }
+        return FeedConfig(
+            feedId: contact.id.uuidString,
+            displayName: contact.displayName,
+            feedURLString: urlStr,
+            entityId: entity.id.uuidString
+        )
+    }
+
     // MARK: Body
 
     var body: some View {
         List(sortedEntities) { entity in
             NavigationLink(value: entity) {
                 EntityRowView(entity: entity)
+            }
+            .contextMenu {
+                if let contact = feedContact(for: entity) {
+                    Button {
+                        editingContact = contact
+                    } label: {
+                        Label("Edit Feed", systemImage: "pencil")
+                    }
+
+                    Divider()
+
+                    if let config = feedConfig(for: entity) {
+                        Button {
+                            Task { await FeedSyncService.syncFeedForced(config: config, context: modelContext) }
+                        } label: {
+                            Label("Sync", systemImage: "arrow.clockwise")
+                        }
+
+                        Button(role: .destructive) {
+                            Task { await FeedSyncService.clearAndSyncFeed(config: config, context: modelContext) }
+                        } label: {
+                            Label("Clear Cache & Sync", systemImage: "arrow.clockwise.circle")
+                        }
+                    }
+                }
             }
             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                 if entity.protectionLevel != .protected {
@@ -67,6 +112,7 @@ struct EntityListView: View {
 #if os(macOS)
         .navigationDestination(for: Entity.self) { entity in
             PostFeedView(entity: entity)
+                .id(entity.id.uuidString)
         }
 #endif
         .navigationTitle("Inbox")
@@ -91,6 +137,12 @@ struct EntityListView: View {
             }
 #if os(macOS)
             .frame(minWidth: 500, idealWidth: 560, minHeight: 400)
+#endif
+        }
+        .sheet(item: $editingContact) { contact in
+            ContactDetailView(contact: contact)
+#if os(macOS)
+                .frame(minWidth: 420, idealWidth: 480, minHeight: 440)
 #endif
         }
         .task {
