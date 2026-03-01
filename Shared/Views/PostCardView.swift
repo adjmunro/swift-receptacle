@@ -210,18 +210,18 @@ struct PostCardView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8))
         }
         // Branch 3 — Rich HTML from feed → StructuredText
+        // Images are stripped to prevent oversized portrait images and async layout crashes.
         else if let html = item.contentHTML,
                 html.range(of: "<[a-zA-Z]", options: .regularExpression) != nil {
             let baseURL = item.linkURLString.flatMap { URL(string: $0) }
             CardBody(
                 content: StructuredText(
-                    markdown: FeedItemRecord.htmlToMarkdown(from: html),
+                    markdown: FeedItemRecord.htmlToMarkdown(from: html, stripsImages: true),
                     baseURL: baseURL
                 )
                 .frame(maxWidth: 700)
                 .textual.blockSpacing(StructuredText.BlockSpacing(top: 2, bottom: 6))
-                .textual.lineSpacing(.fontScaled(0.45))
-                .textual.imageAttachmentLoader(CappedImageAttachmentLoader(baseURL: baseURL, maxHeight: 300)),
+                .textual.lineSpacing(.fontScaled(0.45)),
                 maxHeight: bodyMaxHeight
             )
         }
@@ -752,94 +752,6 @@ private struct YouTubeWebView: UIViewRepresentable {
 
 // youTubeEmbedHTML is defined as FeedItemRecord.youTubeEmbedHTML(videoID:autoplay:)
 // in the Receptacle package (FeedTypes.swift) so it can be unit-tested.
-
-// MARK: - CappedImageAttachment
-
-/// An inline image attachment that caps rendered height to avoid portrait hero images
-/// dominating card content. Width is constrained to the proposed layout width; if the
-/// resulting height would exceed `maxHeight`, both dimensions are scaled back proportionally.
-private struct CappedImageAttachment: Attachment {
-    private let cgImage: CGImage
-    private let naturalSize: CGSize
-    private let altText: String
-    private let urlString: String
-    private let maxHeight: CGFloat
-
-    init(cgImage: CGImage, naturalSize: CGSize, altText: String, urlString: String, maxHeight: CGFloat) {
-        self.cgImage = cgImage
-        self.naturalSize = naturalSize
-        self.altText = altText
-        self.urlString = urlString
-        self.maxHeight = maxHeight
-    }
-
-    var description: String { altText.isEmpty ? "[image]" : altText }
-
-    @MainActor var body: some View {
-        SwiftUI.Image(decorative: cgImage, scale: 1)
-            .resizable()
-            .scaledToFit()
-    }
-
-    func sizeThatFits(_ proposal: ProposedViewSize, in _: TextEnvironmentValues) -> CGSize {
-        let w = naturalSize.width, h = naturalSize.height
-        guard w > 0, h > 0 else { return .zero }
-        let aspect = w / h
-        let proposedW = proposal.width ?? w
-        let clampedW = min(proposedW, w)
-        let derivedH = clampedW / aspect
-        if derivedH <= maxHeight {
-            return CGSize(width: clampedW, height: derivedH)
-        }
-        // Portrait or oversized image: scale to maxHeight preserving aspect ratio.
-        return CGSize(width: maxHeight * aspect, height: maxHeight)
-    }
-
-    static func == (lhs: Self, rhs: Self) -> Bool { lhs.urlString == rhs.urlString }
-    func hash(into hasher: inout Hasher) { hasher.combine(urlString) }
-}
-
-// CGImage is an immutable CoreGraphics object; safe to cross actor boundaries.
-extension CappedImageAttachment: @unchecked Sendable {}
-
-// MARK: - CappedImageAttachmentLoader
-
-/// Downloads images from URLs and creates `CappedImageAttachment` values whose height is
-/// capped at `maxHeight`. Used in Branch 3 (rich-HTML content) to prevent portrait hero
-/// images from dominating the card.
-private struct CappedImageAttachmentLoader: AttachmentLoader {
-    let baseURL: URL?
-    let maxHeight: CGFloat
-
-    func attachment(
-        for url: URL,
-        text: String,
-        environment: ColorEnvironmentValues
-    ) async throws -> CappedImageAttachment {
-        let resolved = URL(string: url.absoluteString, relativeTo: baseURL) ?? url
-        let (data, response) = try await URLSession.shared.data(from: resolved)
-        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-            throw URLError(.badServerResponse)
-        }
-#if os(macOS)
-        guard let nsImage = NSImage(data: data),
-              let cgImage = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil)
-        else { throw URLError(.cannotDecodeContentData) }
-        let naturalSize = nsImage.size
-#else
-        guard let uiImage = UIImage(data: data), let cgImage = uiImage.cgImage
-        else { throw URLError(.cannotDecodeContentData) }
-        let naturalSize = uiImage.size
-#endif
-        return CappedImageAttachment(
-            cgImage: cgImage,
-            naturalSize: naturalSize,
-            altText: text,
-            urlString: resolved.absoluteString,
-            maxHeight: maxHeight
-        )
-    }
-}
 
 // MARK: - LookingGlassWKWebView / LookingGlassWebView
 
