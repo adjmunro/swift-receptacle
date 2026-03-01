@@ -142,7 +142,7 @@ struct AddFeedSheet: View {
         let entity = Entity(
             displayName: displayName,
             contactIds: [contact.id.uuidString],
-            retentionPolicy: .keepLatest(50)
+            retentionPolicy: .keepLatest(5)
         )
         entity.tagIds = selectedTagIds
         modelContext.insert(contact)

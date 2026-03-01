@@ -15,6 +15,9 @@ struct PostCardItem: Identifiable, Sendable {
     let title: String?
     let importanceLevel: ImportanceLevel
     let sourceType: SourceType
+    /// Human-readable source label for the card badge.
+    /// For feeds this is the precise format ("Atom", "JSON Feed"); falls back to sourceType.displayName.
+    let sourceLabel: String
     let isRead: Bool
     let entityId: String
     let replyToAddress: String?
@@ -32,6 +35,7 @@ extension EmailItem {
             title: subject,
             importanceLevel: .normal,
             sourceType: .email,
+            sourceLabel: SourceType.email.displayName,
             isRead: isRead,
             entityId: entityId,
             replyToAddress: effectiveReplyToAddress,
@@ -50,6 +54,7 @@ extension FeedItem {
             title: title,
             importanceLevel: .normal,
             sourceType: .rss,
+            sourceLabel: feedFormat?.displayName ?? FeedFormat.rss.displayName,
             isRead: isRead,
             entityId: entityId,
             replyToAddress: nil,
@@ -76,6 +81,7 @@ struct PostFeedView: View {
     @Query private var emailItems: [EmailItem]
     @Query private var feedItems: [FeedItem]
     @State private var selectedSource: SourceType? = nil
+    @State private var feedHeight: CGFloat = 600
 
     // MARK: Init
 
@@ -86,7 +92,7 @@ struct PostFeedView: View {
             $0.entityId == eid && !$0.isArchived && !$0.isDeleted
         }, sort: \.date, order: .reverse)
         _feedItems = Query(filter: #Predicate<FeedItem> {
-            $0.entityId == eid
+            $0.entityId == eid && !$0.isSaved
         }, sort: \.date, order: .reverse)
     }
 
@@ -173,13 +179,14 @@ struct PostFeedView: View {
                 ScrollView {
                     LazyVStack(spacing: 12) {
                         ForEach(visibleItems) { item in
-                            PostCardView(item: item, entity: entity, onReply: {
+                            PostCardView(item: item, entity: entity, feedHeight: feedHeight, onReply: {
                                 replyToItem = item
                             })
                         }
                     }
                     .padding()
                 }
+                .onGeometryChange(for: CGSize.self) { $0.size } action: { feedHeight = $0.height }
             }
         }
         .navigationTitle(entity.displayName)

@@ -109,7 +109,7 @@ struct RetentionPolicyPicker: View {
                         policy = .keepAll
                     case .keepLatest:
                         if case .keepLatest(let n) = policy { policy = .keepLatest(n) }
-                        else { policy = .keepLatest(10) }
+                        else { policy = .keepLatest(5) }
                     case .keepDays:
                         if case .keepDays(let n) = policy { policy = .keepDays(n) }
                         else { policy = .keepDays(30) }
@@ -127,16 +127,38 @@ struct RetentionPolicyPicker: View {
             .pickerStyle(.menu)
 
             if case .keepLatest(let n) = policy {
-                Stepper("Keep latest \(n) items", value: Binding(
-                    get: { n },
-                    set: { policy = .keepLatest($0) }
-                ), in: 1...1000)
+                HStack {
+                    Text("Keep latest")
+                    TextField("", value: Binding(
+                        get: { n },
+                        set: { policy = .keepLatest($0) }
+                    ), format: .number)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 56)
+                    Text("items")
+                    Stepper("", value: Binding(
+                        get: { n },
+                        set: { policy = .keepLatest($0) }
+                    ), in: 1...1000)
+                    .labelsHidden()
+                }
             }
             if case .keepDays(let n) = policy {
-                Stepper("Keep \(n) days", value: Binding(
-                    get: { n },
-                    set: { policy = .keepDays($0) }
-                ), in: 1...3650)
+                HStack {
+                    Text("Keep")
+                    TextField("", value: Binding(
+                        get: { n },
+                        set: { policy = .keepDays($0) }
+                    ), format: .number)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 56)
+                    Text("days")
+                    Stepper("", value: Binding(
+                        get: { n },
+                        set: { policy = .keepDays($0) }
+                    ), in: 1...3650)
+                    .labelsHidden()
+                }
             }
         }
     }
